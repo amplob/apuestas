@@ -4,9 +4,10 @@
 
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  background: linear-gradient(160deg, #e8eef5 0%, #f4f6f8 45%, #eef2f0 100%);
   color: #1d2733;
+  min-height: 100vh;
 }
 
 .container {
@@ -37,7 +38,51 @@ h2 {
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 20px rgba(15, 35, 55, 0.07);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.view-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.view-tab {
+  background: #fff;
+  color: #2a3d57;
+  border: 1px solid #c7d0d9;
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.view-tab:hover {
+  background: #f0f5fb;
+}
+
+.view-tab.active {
+  background: #0b5ed7;
+  color: #fff;
+  border-color: #0b5ed7;
+}
+
+.view-tab.active:hover {
+  background: #0a53c2;
+}
+
+.view-panel {
+  display: none;
+}
+
+.view-panel.active {
+  display: block;
 }
 
 .row {
@@ -86,6 +131,46 @@ button:hover {
   border-radius: 10px;
   padding: 10px;
   background: #fbfdff;
+}
+
+.token-list--vertical {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-height: auto;
+  padding: 12px;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #f3f7fc;
+  border: 1px solid #d4e2f2;
+}
+
+.rank-row.dragging {
+  opacity: 0.55;
+}
+
+.rank-badge {
+  flex: 0 0 2.25rem;
+  text-align: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #2a5280;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 4px;
+  border: 1px solid #b8cce0;
+}
+
+.rank-row .token {
+  flex: 1;
+  border-radius: 10px;
+  text-align: left;
 }
 
 .positions-text {
@@ -144,6 +229,77 @@ td {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.bet-visual--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.podium {
+  min-height: 140px;
+}
+
+.podium-stage {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 8px 8px;
+  flex-wrap: wrap;
+}
+
+.podium-slot {
+  flex: 1 1 88px;
+  max-width: 140px;
+  min-width: 72px;
+  border-radius: 12px 12px 4px 4px;
+  padding: 12px 8px;
+  text-align: center;
+  background: linear-gradient(180deg, #e8f0fa 0%, #d0dff0 100%);
+  border: 1px solid #a8c0dc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.podium-place-2 {
+  min-height: 88px;
+  order: 0;
+}
+
+.podium-place-1 {
+  min-height: 120px;
+  order: 1;
+  background: linear-gradient(180deg, #fff6d8 0%, #f5e6a8 100%);
+  border-color: #d4b84a;
+  box-shadow: 0 6px 18px rgba(212, 184, 74, 0.35);
+}
+
+.podium-place-3 {
+  min-height: 72px;
+  order: 2;
+}
+
+.podium-empty {
+  opacity: 0.45;
+}
+
+.podium-medal {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.podium-name {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.podium-score {
+  font-size: 0.8rem;
+  color: #3d4f63;
 }
 
 .runner-chip {

@@ -10,87 +10,110 @@
     <main class="container">
       <h1>A la cursa d'enguany veurem qui és el més "petao"</h1>
       <p class="hint">
-        Sense ànims d'incentivar el joc i recordeu de no apostar
+        Sense ànims d'incentivar el joc i recordeu de no apostar, podeu predir
+        el resultat.
       </p>
 
-      <section class="card">
-        <div class="row">
-          <div>
-            <span class="label">Usuari actual:</span>
-            <strong id="current-user">-</strong>
+      <nav class="view-nav" aria-label="Navegació principal">
+        <button type="button" class="view-tab active" data-view="summary">
+          Resum i podi
+        </button>
+        <button type="button" class="view-tab" data-view="bet">Apostar</button>
+        <button type="button" class="view-tab" data-view="admin">Resoldre</button>
+      </nav>
+
+      <!-- Vista: resum + podi -->
+      <div id="view-summary" class="view-panel active" role="tabpanel">
+        <section class="card">
+          <h2>Podi</h2>
+          <p id="podium-hint" class="small"></p>
+          <div id="podium" class="podium" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
+          <h2>Resum de prediccions i puntuació</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Usuari</th>
+                  <th>Predicció (7º dalt → 1º baix)</th>
+                  <th>Puntuació</th>
+                  <th>Última aposta</th>
+                </tr>
+              </thead>
+              <tbody id="summary-body"></tbody>
+            </table>
           </div>
-          <button id="change-user-btn" type="button">Canviar usuari</button>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      <section class="card">
-        <h2>La teva predicció</h2>
-        <p class="small">Ordena d'esquerra (últim) a dreta (primer).</p>
-        <p id="bet-positions" class="positions-text"></p>
-        <div id="bet-list" class="token-list" aria-label="Llista de predicció"></div>
-        <div class="row margin-top">
-          <input
-            id="user-pass"
-            type="password"
-            maxlength="3"
-            placeholder="Clau de l'usuari (3 caràcters)"
-          />
-          <button id="save-bet-btn" type="button">Guardar predicció</button>
-        </div>
-        <p id="bet-message" class="message"></p>
-      </section>
+      <!-- Vista: apostar -->
+      <div id="view-bet" class="view-panel" role="tabpanel" hidden>
+        <section class="card">
+          <h2>Fes la teva predicció</h2>
+          <p class="small">
+            Ordre vertical: <strong>dalt = últim (7º)</strong>,
+            <strong>baix = primer (1º)</strong>. Arrossega cada fila.
+          </p>
+          <p id="bet-positions" class="positions-text"></p>
+          <div
+            id="bet-list"
+            class="token-list token-list--vertical"
+            aria-label="Ordre de predicció"
+          ></div>
+          <div class="row margin-top">
+            <input
+              id="user-pass"
+              type="password"
+              maxlength="3"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="off"
+              placeholder="La teva clau (3 dígits)"
+            />
+            <button id="save-bet-btn" type="button">Guardar predicció</button>
+          </div>
+          <p id="bet-message" class="message"></p>
+        </section>
+      </div>
 
-      <section class="card">
-        <h2>Admin: resultat oficial i avaluació</h2>
-        <p class="small">
-          Ordena el resultat real d'esquerra (últim) a dreta (primer).
-        </p>
-        <p id="result-positions" class="positions-text"></p>
-        <div
-          id="result-list"
-          class="token-list"
-          aria-label="Llista de resultat oficial"
-        ></div>
-        <div class="row margin-top">
-          <input
-            id="admin-token"
-            type="password"
-            placeholder="Token admin"
-            value=""
-          />
-          <button id="evaluate-btn" type="button">Avaluar puntuacions</button>
-        </div>
-        <p id="admin-message" class="message"></p>
-      </section>
+      <!-- Vista: resoldre (admin) -->
+      <div id="view-admin" class="view-panel" role="tabpanel" hidden>
+        <section class="card" id="admin-gate-card">
+          <h2>Resoldre</h2>
+          <p class="small">Introdueix el codi d'administrador per continuar.</p>
+          <div class="row margin-top">
+            <input
+              id="admin-gate-token"
+              type="password"
+              placeholder="Codi admin"
+              autocomplete="off"
+            />
+            <button id="admin-unlock-btn" type="button">Continuar</button>
+          </div>
+          <p id="admin-gate-message" class="message"></p>
+        </section>
 
-      <section class="card">
-        <h2>Resum de prediccions i puntuació</h2>
-        <div class="table-wrap">
-          <table>
-          <thead>
-            <tr>
-              <th>Usuari</th>
-              <th>Predicció (esq últim -> dreta primer)</th>
-              <th>Puntuació</th>
-              <th>Última aposta</th>
-            </tr>
-          </thead>
-          <tbody id="summary-body"></tbody>
-          </table>
-        </div>
-      </section>
+        <section class="card hidden" id="admin-panel-card">
+          <h2>Resultat oficial i avaluació</h2>
+          <p class="small">
+            Mateix ordre: <strong>dalt = últim</strong>,
+            <strong>baix = primer</strong>.
+          </p>
+          <p id="result-positions" class="positions-text"></p>
+          <div
+            id="result-list"
+            class="token-list token-list--vertical"
+            aria-label="Resultat oficial"
+          ></div>
+          <div class="row margin-top">
+            <button id="evaluate-btn" type="button">Avaluar puntuacions</button>
+          </div>
+          <p id="admin-message" class="message"></p>
+        </section>
+      </div>
     </main>
-
-    <dialog id="user-dialog">
-      <form method="dialog" id="user-form">
-        <h3>Qui vol fer la predicció?</h3>
-        <label for="user-select">Selecciona un usuari</label>
-        <select id="user-select"></select>
-        <div class="row margin-top">
-          <button type="submit">Entrar</button>
-        </div>
-      </form>
-    </dialog>
 
     <script src="./config.js"></script>
     <script src="./app.js"></script>

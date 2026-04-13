@@ -2,6 +2,7 @@ const RACERS = ["Albert", "Aniol", "Marc", "Roger", "Pere", "Gerard", "Yaiza"];
 const EXTRA_VOTERS = ["Jose", "Luis", "Cesar", "Flor"];
 const VOTERS = [...RACERS, ...EXTRA_VOTERS];
 const ADMIN_TOKEN = "kento";
+const ADMIN_SESSION_KEY = "carrera-admin-unlocked";
 
 const STORAGE_KEY = "carrera-apuestas-v1";
 const APP_CONFIG = window.APP_CONFIG || {};
@@ -9,31 +10,31 @@ const REMOTE_DB_URL = APP_CONFIG.remoteDbUrl || "";
 const LOCAL_PASSWORD_HASHES = APP_CONFIG.localPasswordHashes || {};
 
 const state = {
-  currentUser: null,
-  bets: {}, // { usuario: [orden] }
-  scores: {}, // { usuario: numero }
+  bets: {},
+  scores: {},
   resultOrder: [...RACERS],
-  lastBetAt: {}, // { usuario: isoString }
+  lastBetAt: {},
 };
 
 let passwordHashes = null;
 
-const currentUserEl = document.getElementById("current-user");
 const betListEl = document.getElementById("bet-list");
 const resultListEl = document.getElementById("result-list");
 const saveBetBtn = document.getElementById("save-bet-btn");
 const evaluateBtn = document.getElementById("evaluate-btn");
 const userPassEl = document.getElementById("user-pass");
-const adminTokenEl = document.getElementById("admin-token");
 const betMessageEl = document.getElementById("bet-message");
 const adminMessageEl = document.getElementById("admin-message");
 const summaryBodyEl = document.getElementById("summary-body");
 const betPositionsEl = document.getElementById("bet-positions");
 const resultPositionsEl = document.getElementById("result-positions");
-const changeUserBtn = document.getElementById("change-user-btn");
-const userDialog = document.getElementById("user-dialog");
-const userSelect = document.getElementById("user-select");
-const userForm = document.getElementById("user-form");
+const podiumEl = document.getElementById("podium");
+const podiumHintEl = document.getElementById("podium-hint");
+const adminGateCard = document.getElementById("admin-gate-card");
+const adminPanelCard = document.getElementById("admin-panel-card");
+const adminGateTokenEl = document.getElementById("admin-gate-token");
+const adminUnlockBtn = document.getElementById("admin-unlock-btn");
+const adminGateMessageEl = document.getElementById("admin-gate-message");
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -47,7 +48,6 @@ function normalizeState(input) {
   state.resultOrder = Array.isArray(input.resultOrder)
     ? input.resultOrder
     : [...RACERS];
-  state.currentUser = input.currentUser || null;
   state.lastBetAt = input.lastBetAt || {};
 }
 
@@ -59,7 +59,7 @@ function loadState() {
     const parsed = JSON.parse(raw);
     normalizeState(parsed);
   } catch {
-    // Ignorar estat invalid i continuar amb valors per defecte.
+    // Ignorar estat invàlid.
   }
 }
 
@@ -138,6 +138,18 @@ async function loadPasswordHashes() {
   }
 }
 
+async function resolveUserFromCode(pass) {
+  if (!passwordHashes || !pass) return null;
+  const trimmed = pass.trim();
+  for (const user of VOTERS) {
+    const expected = passwordHashes[user];
+    if (!expected) continue;
+    const hash = await sha256(`${user}:${trimmed}`);
+    if (hash === expected) return user;
+  }
+  return null;
+}
+
 function setMessage(el, text, isError = false) {
   el.textContent = text;
   el.classList.remove("ok", "error");
@@ -145,53 +157,67 @@ function setMessage(el, text, isError = false) {
   el.classList.add(isError ? "error" : "ok");
 }
 
-function createTokens(container, order, draggable = true) {
+/** Ordre al DOM: índex 0 = últim (7º), últim índex = primer (1º) */
+function createRankedRows(container, order, draggable) {
   container.innerHTML = "";
-  order.forEach((name) => {
+  const n = order.length;
+  order.forEach((name, index) => {
+    const placeFromBottom = n - index;
+    const row = document.createElement("div");
+    row.className = "rank-row";
+    row.dataset.name = name;
+
+    const badge = document.createElement("span");
+    badge.className = "rank-badge";
+    badge.textContent = `${placeFromBottom}º`;
+
     const token = document.createElement("div");
     token.className = "token";
     token.textContent = name;
-    token.dataset.name = name;
     token.draggable = draggable;
-    container.appendChild(token);
+    token.setAttribute("aria-grabbed", "false");
+
+    row.appendChild(badge);
+    row.appendChild(token);
+    container.appendChild(row);
   });
 
-  if (draggable) enableDragAndDrop(container);
+  if (draggable) enableVerticalDrag(container);
 }
 
-function enableDragAndDrop(container) {
-  let dragging = null;
+function enableVerticalDrag(container) {
+  let draggingRow = null;
 
-  container.querySelectorAll(".token").forEach((token) => {
+  container.querySelectorAll(".rank-row").forEach((row) => {
+    const token = row.querySelector(".token");
     token.addEventListener("dragstart", () => {
-      dragging = token;
-      token.classList.add("dragging");
+      draggingRow = row;
+      row.classList.add("dragging");
     });
-
     token.addEventListener("dragend", () => {
-      token.classList.remove("dragging");
-      dragging = null;
+      row.classList.remove("dragging");
+      draggingRow = null;
     });
   });
 
   container.addEventListener("dragover", (e) => {
     e.preventDefault();
-    const after = getDragAfterElement(container, e.clientX);
-    if (!dragging) return;
+    if (!draggingRow) return;
+    const after = getDragAfterRow(container, e.clientY);
     if (!after) {
-      container.appendChild(dragging);
+      container.appendChild(draggingRow);
     } else {
-      container.insertBefore(dragging, after);
+      container.insertBefore(draggingRow, after);
     }
   });
 }
 
-function getDragAfterElement(container, x) {
-  const draggableElements = [...container.querySelectorAll(".token:not(.dragging)")];
-  return draggableElements.reduce(
+function getDragAfterRow(container, y) {
+  const rows = [...container.querySelectorAll(".rank-row:not(.dragging)")];
+  return rows.reduce(
     (closest, child) => {
       const box = child.getBoundingClientRect();
-      const offset = x - box.left - box.width / 2;
+      const offset = y - box.top - box.height / 2;
       if (offset < 0 && offset > closest.offset) {
         return { offset, element: child };
       }
@@ -201,8 +227,8 @@ function getDragAfterElement(container, x) {
   ).element;
 }
 
-function getOrderFromContainer(container) {
-  return [...container.querySelectorAll(".token")].map((el) => el.dataset.name);
+function getOrderFromRankedList(container) {
+  return [...container.querySelectorAll(".rank-row")].map((row) => row.dataset.name);
 }
 
 function getPositionMap(order) {
@@ -221,28 +247,93 @@ function getDeltaClass(delta) {
 }
 
 function renderBetWithDeltas(bet, realPos, showDelta) {
+  const n = bet.length;
   const chips = bet.map((name, predictedPos) => {
+    const place = n - predictedPos;
+    const label = `${place}º ${name}`;
     if (!showDelta || typeof realPos[name] !== "number") {
-      return `<span class="runner-chip">${name}</span>`;
+      return `<span class="runner-chip">${label}</span>`;
     }
-
     const delta = Math.abs(predictedPos - realPos[name]);
-    return `<span class="runner-chip ${getDeltaClass(delta)}">${name} <strong>-${delta}</strong></span>`;
+    return `<span class="runner-chip ${getDeltaClass(delta)}">${label} <strong>−${delta}</strong></span>`;
   });
-
-  return `<div class="bet-visual">${chips.join("")}</div>`;
+  return `<div class="bet-visual bet-visual--stack">${chips.join("")}</div>`;
 }
 
 function renderPositionLegend() {
-  const lastPosition = RACERS.length;
-  const slots = RACERS.map((_, index) => {
-    const position = lastPosition - index;
-    return `${position}º`;
-  });
-
-  const text = `${slots.join(" · ")} (esq últim -> dreta primer)`;
+  const n = RACERS.length;
+  const parts = [];
+  for (let p = n; p >= 1; p--) {
+    parts.push(`${p}º`);
+  }
+  const text = `${parts.join(" → ")} (dalt últim → baix primer)`;
   betPositionsEl.textContent = text;
   resultPositionsEl.textContent = text;
+}
+
+function isAdminUnlocked() {
+  return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1";
+}
+
+function setAdminUnlocked(value) {
+  if (value) sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+  else sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  syncAdminPanelVisibility();
+}
+
+function syncAdminPanelVisibility() {
+  const ok = isAdminUnlocked();
+  adminGateCard.classList.toggle("hidden", ok);
+  adminPanelCard.classList.toggle("hidden", !ok);
+  if (ok) {
+    adminGateTokenEl.value = "";
+    setMessage(adminGateMessageEl, "", false);
+  }
+}
+
+function tryAdminUnlock() {
+  const t = adminGateTokenEl.value.trim();
+  if (t !== ADMIN_TOKEN) {
+    setMessage(adminGateMessageEl, "Codi incorrecte.", true);
+    return;
+  }
+  setAdminUnlocked(true);
+  setMessage(adminGateMessageEl, "", false);
+  createRankedRows(resultListEl, state.resultOrder, true);
+  renderPositionLegend();
+}
+
+function updatePodium() {
+  const ranked = VOTERS.filter((u) => typeof state.scores[u] === "number")
+    .map((u) => ({ user: u, score: state.scores[u] }))
+    .sort((a, b) => b.score - a.score);
+
+  if (ranked.length === 0) {
+    podiumEl.innerHTML = "";
+    podiumHintEl.textContent =
+      "Quan algú avaluï les prediccions, aquí apareixerà el podi dels pronosticadors.";
+    return;
+  }
+
+  podiumHintEl.textContent = "Classificació per puntuació (més punts = millor pronòstic).";
+
+  const medals = ["🥈", "🥇", "🥉"];
+  const rankIndex = [1, 0, 2];
+  const placeClass = [2, 1, 3];
+
+  const blocks = rankIndex.map((ri, slot) => {
+    const entry = ranked[ri];
+    if (!entry) {
+      return `<div class="podium-slot podium-empty podium-place-${placeClass[slot]}"><span class="podium-medal">—</span><span class="podium-name">—</span><span class="podium-score"></span></div>`;
+    }
+    return `<div class="podium-slot podium-place-${placeClass[slot]}">
+      <span class="podium-medal">${medals[slot]}</span>
+      <span class="podium-name">${entry.user}</span>
+      <span class="podium-score">${entry.score} pts</span>
+    </div>`;
+  });
+
+  podiumEl.innerHTML = `<div class="podium-stage">${blocks.join("")}</div>`;
 }
 
 function updateSummary() {
@@ -266,56 +357,46 @@ function updateSummary() {
     `;
     summaryBodyEl.appendChild(tr);
   });
+
+  updatePodium();
 }
 
-function fillUserSelect() {
-  userSelect.innerHTML = "";
-  VOTERS.forEach((name) => {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
-    userSelect.appendChild(option);
+function showView(name) {
+  document.querySelectorAll(".view-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.view === name);
   });
-}
+  document.querySelectorAll(".view-panel").forEach((panel) => {
+    const id = panel.id.replace("view-", "");
+    const on = id === name;
+    panel.classList.toggle("active", on);
+    panel.hidden = !on;
+  });
 
-function showUserDialog() {
-  fillUserSelect();
-  userSelect.value = state.currentUser || VOTERS[0];
-  userDialog.showModal();
-}
-
-function setCurrentUser(name) {
-  state.currentUser = name;
-  currentUserEl.textContent = name;
-
-  const existingBet = state.bets[name] || [...RACERS];
-  createTokens(betListEl, existingBet, true);
-  saveState();
+  if (name === "admin") {
+    syncAdminPanelVisibility();
+    if (isAdminUnlocked()) {
+      createRankedRows(resultListEl, state.resultOrder, true);
+      renderPositionLegend();
+    }
+  }
 }
 
 async function saveBet() {
-  if (!state.currentUser) {
-    setMessage(betMessageEl, "Selecciona usuari abans de predir.", true);
-    showUserDialog();
-    return;
-  }
-
   const pass = userPassEl.value.trim();
-  const passHash = await sha256(`${state.currentUser}:${pass}`);
-  const expectedHash = passwordHashes ? passwordHashes[state.currentUser] : null;
+  const user = await resolveUserFromCode(pass);
 
-  if (!expectedHash || passHash !== expectedHash) {
-    setMessage(betMessageEl, "Clau incorrecta per a aquest usuari.", true);
+  if (!user) {
+    setMessage(betMessageEl, "Clau no vàlida o desconeguda.", true);
     return;
   }
 
-  state.bets[state.currentUser] = getOrderFromContainer(betListEl);
-  state.lastBetAt[state.currentUser] = new Date().toISOString();
+  state.bets[user] = getOrderFromRankedList(betListEl);
+  state.lastBetAt[user] = new Date().toISOString();
   saveState();
   const remoteSaved = await saveStateRemote();
   updateSummary();
   if (remoteSaved) {
-    setMessage(betMessageEl, `Predicció guardada per a ${state.currentUser}.`);
+    setMessage(betMessageEl, `Predicció guardada per a ${user}.`);
   } else if (REMOTE_DB_URL) {
     setMessage(
       betMessageEl,
@@ -325,20 +406,19 @@ async function saveBet() {
   } else {
     setMessage(
       betMessageEl,
-      `Predicció guardada per a ${state.currentUser} (només local).`
+      `Predicció guardada per a ${user} (només local).`
     );
   }
   userPassEl.value = "";
 }
 
 async function evaluateScores() {
-  const token = adminTokenEl.value.trim();
-  if (token !== ADMIN_TOKEN) {
-    setMessage(adminMessageEl, "Token admin incorrecte.", true);
+  if (!isAdminUnlocked()) {
+    setMessage(adminMessageEl, "Primer desbloqueja la vista Resoldre.", true);
     return;
   }
 
-  const result = getOrderFromContainer(resultListEl);
+  const result = getOrderFromRankedList(resultListEl);
   state.resultOrder = result;
 
   const usersWithBet = VOTERS.filter((u) => Array.isArray(state.bets[u]));
@@ -355,22 +435,22 @@ async function evaluateScores() {
   const rawScores = {};
   let minScore = 0;
 
-  usersWithBet.forEach((user) => {
-    const bet = state.bets[user];
+  usersWithBet.forEach((u) => {
+    const bet = state.bets[u];
     let score = 0;
     bet.forEach((name, predictedPos) => {
       score -= Math.abs(predictedPos - realPos[name]);
     });
-    rawScores[user] = score;
+    rawScores[u] = score;
     if (score < minScore) minScore = score;
   });
 
   const offset = Math.abs(minScore);
-  VOTERS.forEach((user) => {
-    if (Object.prototype.hasOwnProperty.call(rawScores, user)) {
-      state.scores[user] = rawScores[user] + offset;
+  VOTERS.forEach((u) => {
+    if (Object.prototype.hasOwnProperty.call(rawScores, u)) {
+      state.scores[u] = rawScores[u] + offset;
     } else {
-      state.scores[user] = null;
+      state.scores[u] = null;
     }
   });
 
@@ -394,36 +474,32 @@ async function init() {
   loadState();
   const remoteLoaded = await loadStateRemote();
   const hashesLoaded = await loadPasswordHashes();
-  renderPositionLegend();
-  createTokens(resultListEl, state.resultOrder, true);
-  updateSummary();
 
-  if (state.currentUser) {
-    setCurrentUser(state.currentUser);
-  } else {
-    currentUserEl.textContent = "-";
-    createTokens(betListEl, [...RACERS], true);
+  renderPositionLegend();
+  createRankedRows(betListEl, [...RACERS], true);
+  if (isAdminUnlocked()) {
+    createRankedRows(resultListEl, state.resultOrder, true);
   }
+  updateSummary();
+  syncAdminPanelVisibility();
+
+  document.querySelectorAll(".view-tab").forEach((btn) => {
+    btn.addEventListener("click", () => showView(btn.dataset.view));
+  });
 
   saveBetBtn.addEventListener("click", saveBet);
   evaluateBtn.addEventListener("click", evaluateScores);
-  changeUserBtn.addEventListener("click", showUserDialog);
-
-  userForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const selected = userSelect.value;
-    setCurrentUser(selected);
-    userDialog.close();
-    setMessage(betMessageEl, "", false);
+  adminUnlockBtn.addEventListener("click", tryAdminUnlock);
+  adminGateTokenEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryAdminUnlock();
   });
 
-  // Requisit: en entrar, sempre preguntar quin usuari vol predir.
-  showUserDialog();
+  showView("summary");
 
   if (!REMOTE_DB_URL) {
     setMessage(
       adminMessageEl,
-      "Sense base remota configurada: dades i claus no són compartides.",
+      "Sense base remota: les dades i les claus no es comparteixen entre dispositius.",
       true
     );
   } else if (!hashesLoaded) {
@@ -435,7 +511,7 @@ async function init() {
   } else if (!remoteLoaded) {
     setMessage(
       adminMessageEl,
-      "No s'ha pogut llegir l'estat remot, s'usa còpia local si existeix.",
+      "No s'ha pogut llegir l'estat remot; s'usa còpia local si existeix.",
       true
     );
   }
