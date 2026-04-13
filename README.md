@@ -3,6 +3,8 @@
 Web estatica para gestionar apuestas de una carrera en oficina, pensada para publicar en GitHub Pages.
 Incluye persistencia remota opcional con Firebase Realtime Database para que los datos no se pierdan entre dias ni entre dispositivos.
 
+Sobre concurrencia: al guardar una prediccion, la app lee el estado remoto, fusiona solo la apuesta de ese usuario y vuelve a escribir (así varias personas pueden apostar a la vez sin pisarse). El campo `currentUser` ya no se usa; si aparece en Firebase es resto de datos antiguos y se puede borrar a mano.
+
 ## Funcionalidades
 
 - Seleccion de usuario al entrar en la pagina.

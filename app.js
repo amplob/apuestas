@@ -5,6 +5,7 @@ const ADMIN_TOKEN = "kento";
 const ADMIN_SESSION_KEY = "carrera-admin-unlocked";
 
 const STORAGE_KEY = "carrera-apuestas-v1";
+const ORDER_VERSION = 2;
 const APP_CONFIG = window.APP_CONFIG || {};
 const REMOTE_DB_URL = APP_CONFIG.remoteDbUrl || "";
 const LOCAL_PASSWORD_HASHES = APP_CONFIG.localPasswordHashes || {};
@@ -14,6 +15,7 @@ const state = {
   scores: {},
   resultOrder: [...RACERS],
   lastBetAt: {},
+  orderVersion: ORDER_VERSION,
 };
 
 let passwordHashes = null;
@@ -36,19 +38,53 @@ const adminGateTokenEl = document.getElementById("admin-gate-token");
 const adminUnlockBtn = document.getElementById("admin-unlock-btn");
 const adminGateMessageEl = document.getElementById("admin-gate-message");
 
+function cleanStatePayload(src) {
+  const s = src || {};
+  return {
+    bets: { ...(s.bets || {}) },
+    scores: { ...(s.scores || {}) },
+    resultOrder: Array.isArray(s.resultOrder) ? [...s.resultOrder] : [...RACERS],
+    lastBetAt: { ...(s.lastBetAt || {}) },
+    orderVersion: ORDER_VERSION,
+  };
+}
+
+function migrateIfNeeded(obj) {
+  if (!obj || typeof obj !== "object") return;
+  if (obj.orderVersion === ORDER_VERSION) return;
+
+  if (Array.isArray(obj.resultOrder) && obj.resultOrder.length === RACERS.length) {
+    obj.resultOrder = [...obj.resultOrder].reverse();
+  }
+  const bets = { ...(obj.bets || {}) };
+  for (const u of VOTERS) {
+    const b = bets[u];
+    if (Array.isArray(b) && b.length === RACERS.length) {
+      bets[u] = [...b].reverse();
+    }
+  }
+  obj.bets = bets;
+  obj.orderVersion = ORDER_VERSION;
+}
+
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  delete state.currentUser;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanStatePayload(state)));
 }
 
 function normalizeState(input) {
   if (!input || typeof input !== "object") return;
 
-  state.bets = input.bets || {};
-  state.scores = input.scores || {};
+  state.bets = { ...(input.bets || {}) };
+  state.scores = { ...(input.scores || {}) };
   state.resultOrder = Array.isArray(input.resultOrder)
-    ? input.resultOrder
+    ? [...input.resultOrder]
     : [...RACERS];
-  state.lastBetAt = input.lastBetAt || {};
+  state.lastBetAt = { ...(input.lastBetAt || {}) };
+  state.orderVersion = input.orderVersion;
+
+  migrateIfNeeded(state);
+  delete state.currentUser;
 }
 
 function loadState() {
@@ -63,23 +99,58 @@ function loadState() {
   }
 }
 
-async function saveStateRemote() {
-  if (!REMOTE_DB_URL) return true;
+async function fetchRemoteStateObject() {
+  if (!REMOTE_DB_URL) return {};
+  try {
+    const response = await fetch(`${REMOTE_DB_URL}/state.json`);
+    if (!response.ok) return {};
+    const data = await response.json();
+    return data && typeof data === "object" ? data : {};
+  } catch {
+    return null;
+  }
+}
 
+async function putRemoteState(payload) {
+  if (!REMOTE_DB_URL) return true;
   try {
     const response = await fetch(`${REMOTE_DB_URL}/state.json`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(state),
+      body: JSON.stringify(cleanStatePayload(payload)),
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    return true;
+    return response.ok;
   } catch {
     return false;
   }
+}
+
+/** Fusiona amb el servidor: només actualitza l'aposta d'un usuari (concurrència segura). */
+async function saveUserBetRemote(user) {
+  if (!REMOTE_DB_URL) return true;
+
+  const raw = await fetchRemoteStateObject();
+  if (raw === null) return false;
+
+  const merged = {
+    bets: { ...(raw.bets || {}) },
+    scores: { ...(raw.scores || {}) },
+    resultOrder: Array.isArray(raw.resultOrder) ? [...raw.resultOrder] : [...RACERS],
+    lastBetAt: { ...(raw.lastBetAt || {}) },
+    orderVersion: raw.orderVersion,
+  };
+  migrateIfNeeded(merged);
+
+  merged.bets[user] = state.bets[user];
+  merged.lastBetAt[user] = state.lastBetAt[user];
+  merged.orderVersion = ORDER_VERSION;
+
+  const ok = await putRemoteState(merged);
+  if (ok) {
+    normalizeState(merged);
+    saveState();
+  }
+  return ok;
 }
 
 async function loadStateRemote() {
@@ -157,19 +228,19 @@ function setMessage(el, text, isError = false) {
   el.classList.add(isError ? "error" : "ok");
 }
 
-/** Ordre al DOM: índex 0 = últim (7º), últim índex = primer (1º) */
+/** Ordre emmagatzemat i al DOM: índex 0 = 1r (dalt), últim índex = últim (baix) */
 function createRankedRows(container, order, draggable) {
   container.innerHTML = "";
   const n = order.length;
   order.forEach((name, index) => {
-    const placeFromBottom = n - index;
+    const place = index + 1;
     const row = document.createElement("div");
     row.className = "rank-row";
     row.dataset.name = name;
 
     const badge = document.createElement("span");
     badge.className = "rank-badge";
-    badge.textContent = `${placeFromBottom}º`;
+    badge.textContent = `${place}º`;
 
     const token = document.createElement("div");
     token.className = "token";
@@ -247,9 +318,8 @@ function getDeltaClass(delta) {
 }
 
 function renderBetWithDeltas(bet, realPos, showDelta) {
-  const n = bet.length;
   const chips = bet.map((name, predictedPos) => {
-    const place = n - predictedPos;
+    const place = predictedPos + 1;
     const label = `${place}º ${name}`;
     if (!showDelta || typeof realPos[name] !== "number") {
       return `<span class="runner-chip">${label}</span>`;
@@ -263,10 +333,10 @@ function renderBetWithDeltas(bet, realPos, showDelta) {
 function renderPositionLegend() {
   const n = RACERS.length;
   const parts = [];
-  for (let p = n; p >= 1; p--) {
+  for (let p = 1; p <= n; p++) {
     parts.push(`${p}º`);
   }
-  const text = `${parts.join(" → ")} (dalt últim → baix primer)`;
+  const text = `${parts.join(" → ")} (dalt primer → baix últim)`;
   betPositionsEl.textContent = text;
   resultPositionsEl.textContent = text;
 }
@@ -393,7 +463,7 @@ async function saveBet() {
   state.bets[user] = getOrderFromRankedList(betListEl);
   state.lastBetAt[user] = new Date().toISOString();
   saveState();
-  const remoteSaved = await saveStateRemote();
+  const remoteSaved = await saveUserBetRemote(user);
   updateSummary();
   if (remoteSaved) {
     setMessage(betMessageEl, `Predicció guardada per a ${user}.`);
@@ -419,9 +489,32 @@ async function evaluateScores() {
   }
 
   const result = getOrderFromRankedList(resultListEl);
-  state.resultOrder = result;
 
-  const usersWithBet = VOTERS.filter((u) => Array.isArray(state.bets[u]));
+  let merged = {
+    bets: { ...state.bets },
+    scores: { ...state.scores },
+    resultOrder: [...state.resultOrder],
+    lastBetAt: { ...state.lastBetAt },
+    orderVersion: state.orderVersion,
+  };
+  migrateIfNeeded(merged);
+
+  if (REMOTE_DB_URL) {
+    const raw = await fetchRemoteStateObject();
+    if (raw !== null) {
+      merged = {
+        bets: { ...(raw.bets || {}) },
+        scores: { ...(raw.scores || {}) },
+        resultOrder: Array.isArray(raw.resultOrder) ? [...raw.resultOrder] : [...RACERS],
+        lastBetAt: { ...(raw.lastBetAt || {}) },
+        orderVersion: raw.orderVersion,
+      };
+      migrateIfNeeded(merged);
+    }
+  }
+
+  const betsForScoring = merged.bets;
+  const usersWithBet = VOTERS.filter((u) => Array.isArray(betsForScoring[u]));
   if (usersWithBet.length === 0) {
     setMessage(adminMessageEl, "No hi ha prediccions guardades per avaluar.", true);
     return;
@@ -436,7 +529,7 @@ async function evaluateScores() {
   let minScore = 0;
 
   usersWithBet.forEach((u) => {
-    const bet = state.bets[u];
+    const bet = betsForScoring[u];
     let score = 0;
     bet.forEach((name, predictedPos) => {
       score -= Math.abs(predictedPos - realPos[name]);
@@ -446,16 +539,39 @@ async function evaluateScores() {
   });
 
   const offset = Math.abs(minScore);
+  const scores = {};
   VOTERS.forEach((u) => {
     if (Object.prototype.hasOwnProperty.call(rawScores, u)) {
-      state.scores[u] = rawScores[u] + offset;
+      scores[u] = rawScores[u] + offset;
     } else {
-      state.scores[u] = null;
+      scores[u] = null;
     }
   });
 
+  const final = {
+    bets: merged.bets,
+    lastBetAt: merged.lastBetAt,
+    resultOrder: result,
+    scores,
+    orderVersion: ORDER_VERSION,
+  };
+
+  state.resultOrder = result;
+  state.scores = scores;
+  state.bets = merged.bets;
+  state.lastBetAt = merged.lastBetAt;
+  state.orderVersion = ORDER_VERSION;
   saveState();
-  const remoteSaved = await saveStateRemote();
+
+  let remoteSaved = true;
+  if (REMOTE_DB_URL) {
+    remoteSaved = await putRemoteState(final);
+    if (remoteSaved) {
+      normalizeState(final);
+      saveState();
+    }
+  }
+
   updateSummary();
   if (remoteSaved) {
     setMessage(adminMessageEl, "Avaluació completada.");
