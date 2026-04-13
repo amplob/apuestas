@@ -23,6 +23,22 @@ h2 {
   color: #4d5b6a;
 }
 
+.race-direction {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 8px 0 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #eaf3ff;
+  color: #2a3d57;
+  font-weight: 700;
+}
+
+.runner {
+  font-size: 1.1rem;
+}
+
 .small {
   font-size: 0.9rem;
   color: #4d5b6a;
@@ -88,6 +104,12 @@ button:hover {
   background: #fbfdff;
 }
 
+.positions-text {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: #5c6c7e;
+}
+
 .token {
   background: #e6eef8;
   border: 1px solid #aac0db;
@@ -126,6 +148,53 @@ td {
   padding: 10px;
   text-align: left;
   vertical-align: top;
+}
+
+.bet-visual {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.runner-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid #d4deea;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  background: #f8fbff;
+}
+
+.runner-chip.delta-0 {
+  border-color: #41a95b;
+  background: #ebf9ef;
+  color: #1f7f39;
+  font-weight: 700;
+}
+
+.runner-chip.delta-1 {
+  border-color: #e2af2c;
+  background: #fff7e3;
+  color: #8f6500;
+}
+
+.runner-chip.delta-2 {
+  border-color: #df7d47;
+  background: #fff0e8;
+  color: #9d3f14;
+}
+
+.runner-chip.delta-3plus {
+  border-color: #cf5d5d;
+  background: #fdeeee;
+  color: #992929;
+}
+
+.no-bet {
+  color: #728397;
+  font-style: italic;
 }
 
 dialog {

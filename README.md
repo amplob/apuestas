@@ -23,6 +23,13 @@ Participantes:
 - Gerard
 - Yaiza
 
+Votantes extra (no corren, pero pueden apostar):
+
+- Jose
+- Luis
+- Cesar
+- Flor
+
 Token admin:
 
 - `token`
@@ -36,6 +43,10 @@ Claves de apuesta por usuario (3 letras):
 - Pere: `kud`
 - Gerard: `fsm`
 - Yaiza: `hzo`
+- Jose: `381`
+- Luis: `642`
+- Cesar: `905`
+- Flor: `174`
 
 ## Como publicar en GitHub Pages
 

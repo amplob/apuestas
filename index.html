@@ -1,54 +1,56 @@
 <!doctype html>
-<html lang="es">
+<html lang="ca">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Apuestas Carrera Oficina</title>
+    <title>Prediccions Cursa Oficina</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="container">
-      <h1>Apuestas Carrera Oficina</h1>
+      <h1>A la cursa d'enguany veurem qui es el mes "petao"</h1>
       <p class="hint">
-        Arrastra los corredores para ordenar tu apuesta. Izquierda = ultimo,
-        derecha = primero.
+        Sense anims d'insentivar al joc i recordeu de no apostar, podeu predir
+        el resultat.
       </p>
 
       <section class="card">
         <div class="row">
           <div>
-            <span class="label">Usuario actual:</span>
+            <span class="label">Usuari actual:</span>
             <strong id="current-user">-</strong>
           </div>
-          <button id="change-user-btn" type="button">Cambiar usuario</button>
+          <button id="change-user-btn" type="button">Canviar usuari</button>
         </div>
       </section>
 
       <section class="card">
-        <h2>Tu apuesta</h2>
-        <p class="small">Ordena de izquierda (ultimo) a derecha (primero).</p>
-        <div id="bet-list" class="token-list" aria-label="Lista de apuesta"></div>
+        <h2>La teva prediccio</h2>
+        <p class="small">Ordena d'esquerra (ultim) a dreta (primer).</p>
+        <p id="bet-positions" class="positions-text"></p>
+        <div id="bet-list" class="token-list" aria-label="Llista de prediccio"></div>
         <div class="row margin-top">
           <input
             id="user-pass"
             type="password"
             maxlength="3"
-            placeholder="Clave del jugador (3 letras)"
+            placeholder="Clau de l'usuari (3 caracters)"
           />
-          <button id="save-bet-btn" type="button">Guardar apuesta</button>
+          <button id="save-bet-btn" type="button">Guardar prediccio</button>
         </div>
         <p id="bet-message" class="message"></p>
       </section>
 
       <section class="card">
-        <h2>Admin: resultado oficial y evaluación</h2>
+        <h2>Admin: resultat oficial i avaluacio</h2>
         <p class="small">
-          Ordena el resultado real de izquierda (ultimo) a derecha (primero).
+          Ordena el resultat real d'esquerra (ultim) a dreta (primer).
         </p>
+        <p id="result-positions" class="positions-text"></p>
         <div
           id="result-list"
           class="token-list"
-          aria-label="Lista de resultado oficial"
+          aria-label="Llista de resultat oficial"
         ></div>
         <div class="row margin-top">
           <input
@@ -57,19 +59,19 @@
             placeholder="Token admin"
             value=""
           />
-          <button id="evaluate-btn" type="button">Evaluar puntuaciones</button>
+          <button id="evaluate-btn" type="button">Avaluar puntuacions</button>
         </div>
         <p id="admin-message" class="message"></p>
       </section>
 
       <section class="card">
-        <h2>Resumen de apuestas y puntuación</h2>
+        <h2>Resum de prediccions i puntuacio</h2>
         <table>
           <thead>
             <tr>
-              <th>Usuario</th>
-              <th>Apuesta (izq ult -> der prim)</th>
-              <th>Puntuación</th>
+              <th>Usuari</th>
+              <th>Prediccio (esq ultim -> dreta primer)</th>
+              <th>Puntuacio</th>
             </tr>
           </thead>
           <tbody id="summary-body"></tbody>
@@ -79,8 +81,8 @@
 
     <dialog id="user-dialog">
       <form method="dialog" id="user-form">
-        <h3>¿Quién va a apostar?</h3>
-        <label for="user-select">Selecciona un usuario</label>
+        <h3>Qui vol fer la prediccio?</h3>
+        <label for="user-select">Selecciona un usuari</label>
         <select id="user-select"></select>
         <div class="row margin-top">
           <button type="submit">Entrar</button>

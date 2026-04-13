@@ -1,4 +1,6 @@
-const PLAYERS = ["Albert", "Aniol", "Marc", "Roger", "Pere", "Gerard", "Yaiza"];
+const RACERS = ["Albert", "Aniol", "Marc", "Roger", "Pere", "Gerard", "Yaiza"];
+const EXTRA_VOTERS = ["Jose", "Luis", "Cesar", "Flor"];
+const VOTERS = [...RACERS, ...EXTRA_VOTERS];
 const ADMIN_TOKEN = "token";
 const USER_PASSWORDS = {
   Albert: "qmv",
@@ -8,6 +10,10 @@ const USER_PASSWORDS = {
   Pere: "kud",
   Gerard: "fsm",
   Yaiza: "hzo",
+  Jose: "381",
+  Luis: "642",
+  Cesar: "905",
+  Flor: "174",
 };
 
 const STORAGE_KEY = "carrera-apuestas-v1";
@@ -18,7 +24,7 @@ const state = {
   currentUser: null,
   bets: {}, // { usuario: [orden] }
   scores: {}, // { usuario: numero }
-  resultOrder: [...PLAYERS],
+  resultOrder: [...RACERS],
 };
 
 const currentUserEl = document.getElementById("current-user");
@@ -31,6 +37,8 @@ const adminTokenEl = document.getElementById("admin-token");
 const betMessageEl = document.getElementById("bet-message");
 const adminMessageEl = document.getElementById("admin-message");
 const summaryBodyEl = document.getElementById("summary-body");
+const betPositionsEl = document.getElementById("bet-positions");
+const resultPositionsEl = document.getElementById("result-positions");
 const changeUserBtn = document.getElementById("change-user-btn");
 const userDialog = document.getElementById("user-dialog");
 const userSelect = document.getElementById("user-select");
@@ -47,7 +55,7 @@ function normalizeState(input) {
   state.scores = input.scores || {};
   state.resultOrder = Array.isArray(input.resultOrder)
     ? input.resultOrder
-    : [...PLAYERS];
+    : [...RACERS];
   state.currentUser = input.currentUser || null;
 }
 
@@ -59,7 +67,7 @@ function loadState() {
     const parsed = JSON.parse(raw);
     normalizeState(parsed);
   } catch {
-    // Ignorar estado invalido y continuar con valores por defecto.
+    // Ignorar estat invalid i continuar amb valors per defecte.
   }
 }
 
@@ -168,17 +176,62 @@ function getOrderFromContainer(container) {
   return [...container.querySelectorAll(".token")].map((el) => el.dataset.name);
 }
 
+function getPositionMap(order) {
+  const pos = {};
+  order.forEach((name, i) => {
+    pos[name] = i;
+  });
+  return pos;
+}
+
+function getDeltaClass(delta) {
+  if (delta === 0) return "delta-0";
+  if (delta === 1) return "delta-1";
+  if (delta === 2) return "delta-2";
+  return "delta-3plus";
+}
+
+function renderBetWithDeltas(bet, realPos, showDelta) {
+  const chips = bet.map((name, predictedPos) => {
+    if (!showDelta || typeof realPos[name] !== "number") {
+      return `<span class="runner-chip">${name}</span>`;
+    }
+
+    const delta = Math.abs(predictedPos - realPos[name]);
+    return `<span class="runner-chip ${getDeltaClass(delta)}">${name} <strong>-${delta}</strong></span>`;
+  });
+
+  return `<div class="bet-visual">${chips.join("")}</div>`;
+}
+
+function renderPositionLegend() {
+  const lastPosition = RACERS.length;
+  const slots = RACERS.map((_, index) => {
+    const position = lastPosition - index;
+    return `${position}º`;
+  });
+
+  const text = `${slots.join(" · ")} (esq ultim -> dreta primer)`;
+  betPositionsEl.textContent = text;
+  resultPositionsEl.textContent = text;
+}
+
 function updateSummary() {
   summaryBodyEl.innerHTML = "";
-  PLAYERS.forEach((user) => {
+  const realPos = getPositionMap(state.resultOrder);
+
+  VOTERS.forEach((user) => {
     const tr = document.createElement("tr");
     const bet = state.bets[user];
     const score = Object.prototype.hasOwnProperty.call(state.scores, user)
       ? state.scores[user]
       : null;
+    const betHtml = bet
+      ? renderBetWithDeltas(bet, realPos, score !== null)
+      : '<span class="no-bet">Sense prediccio</span>';
     tr.innerHTML = `
       <td>${user}</td>
-      <td>${bet ? bet.join(" -> ") : "Sin apuesta"}</td>
+      <td>${betHtml}</td>
       <td>${score === null ? "null" : score}</td>
     `;
     summaryBodyEl.appendChild(tr);
@@ -187,7 +240,7 @@ function updateSummary() {
 
 function fillUserSelect() {
   userSelect.innerHTML = "";
-  PLAYERS.forEach((name) => {
+  VOTERS.forEach((name) => {
     const option = document.createElement("option");
     option.value = name;
     option.textContent = name;
@@ -197,7 +250,7 @@ function fillUserSelect() {
 
 function showUserDialog() {
   fillUserSelect();
-  userSelect.value = state.currentUser || PLAYERS[0];
+  userSelect.value = state.currentUser || VOTERS[0];
   userDialog.showModal();
 }
 
@@ -205,14 +258,14 @@ function setCurrentUser(name) {
   state.currentUser = name;
   currentUserEl.textContent = name;
 
-  const existingBet = state.bets[name] || [...PLAYERS];
+  const existingBet = state.bets[name] || [...RACERS];
   createTokens(betListEl, existingBet, true);
   saveState();
 }
 
 async function saveBet() {
   if (!state.currentUser) {
-    setMessage(betMessageEl, "Selecciona usuario antes de apostar.", true);
+    setMessage(betMessageEl, "Selecciona usuari abans de predir.", true);
     showUserDialog();
     return;
   }
@@ -221,7 +274,7 @@ async function saveBet() {
   const expected = USER_PASSWORDS[state.currentUser];
 
   if (pass !== expected) {
-    setMessage(betMessageEl, "Clave incorrecta para este usuario.", true);
+    setMessage(betMessageEl, "Clau incorrecta per a aquest usuari.", true);
     return;
   }
 
@@ -230,17 +283,17 @@ async function saveBet() {
   const remoteSaved = await saveStateRemote();
   updateSummary();
   if (remoteSaved) {
-    setMessage(betMessageEl, `Apuesta guardada para ${state.currentUser}.`);
+    setMessage(betMessageEl, `Prediccio guardada per a ${state.currentUser}.`);
   } else if (REMOTE_DB_URL) {
     setMessage(
       betMessageEl,
-      "Apuesta guardada en este navegador, pero fallo guardado remoto.",
+      "Prediccio guardada en aquest navegador, pero ha fallat el guardat remot.",
       true
     );
   } else {
     setMessage(
       betMessageEl,
-      `Apuesta guardada para ${state.currentUser} (solo local).`
+      `Prediccio guardada per a ${state.currentUser} (nomes local).`
     );
   }
   userPassEl.value = "";
@@ -249,16 +302,16 @@ async function saveBet() {
 async function evaluateScores() {
   const token = adminTokenEl.value.trim();
   if (token !== ADMIN_TOKEN) {
-    setMessage(adminMessageEl, "Token admin incorrecto.", true);
+    setMessage(adminMessageEl, "Token admin incorrecte.", true);
     return;
   }
 
   const result = getOrderFromContainer(resultListEl);
   state.resultOrder = result;
 
-  const usersWithBet = PLAYERS.filter((u) => Array.isArray(state.bets[u]));
+  const usersWithBet = VOTERS.filter((u) => Array.isArray(state.bets[u]));
   if (usersWithBet.length === 0) {
-    setMessage(adminMessageEl, "No hay apuestas guardadas para evaluar.", true);
+    setMessage(adminMessageEl, "No hi ha prediccions guardades per avaluar.", true);
     return;
   }
 
@@ -281,7 +334,7 @@ async function evaluateScores() {
   });
 
   const offset = Math.abs(minScore);
-  PLAYERS.forEach((user) => {
+  VOTERS.forEach((user) => {
     if (Object.prototype.hasOwnProperty.call(rawScores, user)) {
       state.scores[user] = rawScores[user] + offset;
     } else {
@@ -293,21 +346,22 @@ async function evaluateScores() {
   const remoteSaved = await saveStateRemote();
   updateSummary();
   if (remoteSaved) {
-    setMessage(adminMessageEl, "Evaluación completada.");
+    setMessage(adminMessageEl, "Avaluacio completada.");
   } else if (REMOTE_DB_URL) {
     setMessage(
       adminMessageEl,
-      "Evaluación completada localmente, pero no se pudo guardar remoto.",
+      "Avaluacio completada localment, pero no s'ha pogut guardar remot.",
       true
     );
   } else {
-    setMessage(adminMessageEl, "Evaluación completada (solo local).");
+    setMessage(adminMessageEl, "Avaluacio completada (nomes local).");
   }
 }
 
 async function init() {
   loadState();
   const remoteLoaded = await loadStateRemote();
+  renderPositionLegend();
   createTokens(resultListEl, state.resultOrder, true);
   updateSummary();
 
@@ -315,7 +369,7 @@ async function init() {
     setCurrentUser(state.currentUser);
   } else {
     currentUserEl.textContent = "-";
-    createTokens(betListEl, [...PLAYERS], true);
+    createTokens(betListEl, [...RACERS], true);
   }
 
   saveBetBtn.addEventListener("click", saveBet);
@@ -330,19 +384,19 @@ async function init() {
     setMessage(betMessageEl, "", false);
   });
 
-  // Requisito: al entrar, siempre preguntar por el usuario que va a votar.
+  // Requisit: en entrar, sempre preguntar quin usuari vol predir.
   showUserDialog();
 
   if (!REMOTE_DB_URL) {
     setMessage(
       adminMessageEl,
-      "Sin base remota configurada: los datos se guardan solo en el navegador.",
+      "Sense base remota configurada: les dades es guarden nomes al navegador.",
       true
     );
   } else if (!remoteLoaded) {
     setMessage(
       adminMessageEl,
-      "No se pudo leer estado remoto, usando copia local si existe.",
+      "No s'ha pogut llegir l'estat remot, s'usa copia local si existeix.",
       true
     );
   }
