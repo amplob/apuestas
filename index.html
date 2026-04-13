@@ -8,10 +8,9 @@
   </head>
   <body>
     <main class="container">
-      <h1>A la cursa d'enguany veurem qui es el mes "petao"</h1>
+      <h1>A la cursa d'enguany veurem qui és el més "petao"</h1>
       <p class="hint">
-        Sense anims d'insentivar al joc i recordeu de no apostar, podeu predir
-        el resultat.
+        Sense ànims d'incentivar el joc i recordeu de no apostar
       </p>
 
       <section class="card">
@@ -25,26 +24,26 @@
       </section>
 
       <section class="card">
-        <h2>La teva prediccio</h2>
-        <p class="small">Ordena d'esquerra (ultim) a dreta (primer).</p>
+        <h2>La teva predicció</h2>
+        <p class="small">Ordena d'esquerra (últim) a dreta (primer).</p>
         <p id="bet-positions" class="positions-text"></p>
-        <div id="bet-list" class="token-list" aria-label="Llista de prediccio"></div>
+        <div id="bet-list" class="token-list" aria-label="Llista de predicció"></div>
         <div class="row margin-top">
           <input
             id="user-pass"
             type="password"
             maxlength="3"
-            placeholder="Clau de l'usuari (3 caracters)"
+            placeholder="Clau de l'usuari (3 caràcters)"
           />
-          <button id="save-bet-btn" type="button">Guardar prediccio</button>
+          <button id="save-bet-btn" type="button">Guardar predicció</button>
         </div>
         <p id="bet-message" class="message"></p>
       </section>
 
       <section class="card">
-        <h2>Admin: resultat oficial i avaluacio</h2>
+        <h2>Admin: resultat oficial i avaluació</h2>
         <p class="small">
-          Ordena el resultat real d'esquerra (ultim) a dreta (primer).
+          Ordena el resultat real d'esquerra (últim) a dreta (primer).
         </p>
         <p id="result-positions" class="positions-text"></p>
         <div
@@ -65,24 +64,26 @@
       </section>
 
       <section class="card">
-        <h2>Resum de prediccions i puntuacio</h2>
-        <table>
+        <h2>Resum de prediccions i puntuació</h2>
+        <div class="table-wrap">
+          <table>
           <thead>
             <tr>
               <th>Usuari</th>
-              <th>Prediccio (esq ultim -> dreta primer)</th>
-              <th>Puntuacio</th>
-              <th>Ultima aposta</th>
+              <th>Predicció (esq últim -> dreta primer)</th>
+              <th>Puntuació</th>
+              <th>Última aposta</th>
             </tr>
           </thead>
           <tbody id="summary-body"></tbody>
-        </table>
+          </table>
+        </div>
       </section>
     </main>
 
     <dialog id="user-dialog">
       <form method="dialog" id="user-form">
-        <h3>Qui vol fer la prediccio?</h3>
+        <h3>Qui vol fer la predicció?</h3>
         <label for="user-select">Selecciona un usuari</label>
         <select id="user-select"></select>
         <div class="row margin-top">

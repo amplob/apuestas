@@ -240,7 +240,7 @@ function renderPositionLegend() {
     return `${position}º`;
   });
 
-  const text = `${slots.join(" · ")} (esq ultim -> dreta primer)`;
+  const text = `${slots.join(" · ")} (esq últim -> dreta primer)`;
   betPositionsEl.textContent = text;
   resultPositionsEl.textContent = text;
 }
@@ -257,7 +257,7 @@ function updateSummary() {
       : null;
     const betHtml = bet
       ? renderBetWithDeltas(bet, realPos, score !== null)
-      : '<span class="no-bet">Sense prediccio</span>';
+      : '<span class="no-bet">Sense predicció</span>';
     tr.innerHTML = `
       <td>${user}</td>
       <td>${betHtml}</td>
@@ -315,17 +315,17 @@ async function saveBet() {
   const remoteSaved = await saveStateRemote();
   updateSummary();
   if (remoteSaved) {
-    setMessage(betMessageEl, `Prediccio guardada per a ${state.currentUser}.`);
+    setMessage(betMessageEl, `Predicció guardada per a ${state.currentUser}.`);
   } else if (REMOTE_DB_URL) {
     setMessage(
       betMessageEl,
-      "Prediccio guardada en aquest navegador, pero ha fallat el guardat remot.",
+      "Predicció guardada en aquest navegador, però ha fallat el guardat remot.",
       true
     );
   } else {
     setMessage(
       betMessageEl,
-      `Prediccio guardada per a ${state.currentUser} (nomes local).`
+      `Predicció guardada per a ${state.currentUser} (només local).`
     );
   }
   userPassEl.value = "";
@@ -378,15 +378,15 @@ async function evaluateScores() {
   const remoteSaved = await saveStateRemote();
   updateSummary();
   if (remoteSaved) {
-    setMessage(adminMessageEl, "Avaluacio completada.");
+    setMessage(adminMessageEl, "Avaluació completada.");
   } else if (REMOTE_DB_URL) {
     setMessage(
       adminMessageEl,
-      "Avaluacio completada localment, pero no s'ha pogut guardar remot.",
+      "Avaluació completada localment, però no s'ha pogut guardar remot.",
       true
     );
   } else {
-    setMessage(adminMessageEl, "Avaluacio completada (nomes local).");
+    setMessage(adminMessageEl, "Avaluació completada (només local).");
   }
 }
 
@@ -423,7 +423,7 @@ async function init() {
   if (!REMOTE_DB_URL) {
     setMessage(
       adminMessageEl,
-      "Sense base remota configurada: dades i claus no son compartides.",
+      "Sense base remota configurada: dades i claus no són compartides.",
       true
     );
   } else if (!hashesLoaded) {
@@ -435,7 +435,7 @@ async function init() {
   } else if (!remoteLoaded) {
     setMessage(
       adminMessageEl,
-      "No s'ha pogut llegir l'estat remot, s'usa copia local si existeix.",
+      "No s'ha pogut llegir l'estat remot, s'usa còpia local si existeix.",
       true
     );
   }
