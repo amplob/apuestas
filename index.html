@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Apuestas Carrera Oficina</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Apuestas Carrera Oficina</h1>
+      <p class="hint">
+        Arrastra los corredores para ordenar tu apuesta. Izquierda = ultimo,
+        derecha = primero.
+      </p>
+
+      <section class="card">
+        <div class="row">
+          <div>
+            <span class="label">Usuario actual:</span>
+            <strong id="current-user">-</strong>
+          </div>
+          <button id="change-user-btn" type="button">Cambiar usuario</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Tu apuesta</h2>
+        <p class="small">Ordena de izquierda (ultimo) a derecha (primero).</p>
+        <div id="bet-list" class="token-list" aria-label="Lista de apuesta"></div>
+        <div class="row margin-top">
+          <input
+            id="user-pass"
+            type="password"
+            maxlength="3"
+            placeholder="Clave del jugador (3 letras)"
+          />
+          <button id="save-bet-btn" type="button">Guardar apuesta</button>
+        </div>
+        <p id="bet-message" class="message"></p>
+      </section>
+
+      <section class="card">
+        <h2>Admin: resultado oficial y evaluación</h2>
+        <p class="small">
+          Ordena el resultado real de izquierda (ultimo) a derecha (primero).
+        </p>
+        <div
+          id="result-list"
+          class="token-list"
+          aria-label="Lista de resultado oficial"
+        ></div>
+        <div class="row margin-top">
+          <input
+            id="admin-token"
+            type="password"
+            placeholder="Token admin"
+            value=""
+          />
+          <button id="evaluate-btn" type="button">Evaluar puntuaciones</button>
+        </div>
+        <p id="admin-message" class="message"></p>
+      </section>
+
+      <section class="card">
+        <h2>Resumen de apuestas y puntuación</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Apuesta (izq ult -> der prim)</th>
+              <th>Puntuación</th>
+            </tr>
+          </thead>
+          <tbody id="summary-body"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <dialog id="user-dialog">
+      <form method="dialog" id="user-form">
+        <h3>¿Quién va a apostar?</h3>
+        <label for="user-select">Selecciona un usuario</label>
+        <select id="user-select"></select>
+        <div class="row margin-top">
+          <button type="submit">Entrar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./config.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

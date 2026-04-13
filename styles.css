@@ -1,0 +1,140 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  color: #1d2733;
+}
+
+.container {
+  width: min(1100px, 94vw);
+  margin: 24px auto 40px;
+}
+
+h1,
+h2 {
+  margin-top: 0;
+}
+
+.hint {
+  color: #4d5b6a;
+}
+
+.small {
+  font-size: 0.9rem;
+  color: #4d5b6a;
+}
+
+.label {
+  color: #4d5b6a;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.margin-top {
+  margin-top: 12px;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+input,
+select {
+  padding: 8px 10px;
+  border: 1px solid #c7d0d9;
+  border-radius: 8px;
+}
+
+button {
+  border: 0;
+  background: #0b5ed7;
+  color: white;
+  border-radius: 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #084cab;
+}
+
+.token-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 58px;
+  border: 1px dashed #9fb0c1;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fbfdff;
+}
+
+.token {
+  background: #e6eef8;
+  border: 1px solid #aac0db;
+  border-radius: 999px;
+  padding: 8px 12px;
+  user-select: none;
+  cursor: grab;
+}
+
+.token.dragging {
+  opacity: 0.5;
+}
+
+.message {
+  min-height: 1.2em;
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+}
+
+.ok {
+  color: #0a7a31;
+}
+
+.error {
+  color: #a02121;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e2e8ef;
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+dialog {
+  border: 0;
+  border-radius: 10px;
+  padding: 18px;
+  width: min(90vw, 360px);
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
