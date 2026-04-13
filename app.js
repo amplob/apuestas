@@ -1,6 +1,9 @@
 const RACERS = ["Albert", "Aniol", "Marc", "Roger", "Pere", "Gerard", "Yaiza"];
 const EXTRA_VOTERS = ["Jose", "Luis", "Cesar", "Flor"];
 const VOTERS = [...RACERS, ...EXTRA_VOTERS];
+const VOTERS_DISPLAY_ORDER = [...VOTERS].sort((a, b) =>
+  a.localeCompare(b, "ca", { sensitivity: "accent" })
+);
 const ADMIN_TOKEN = "kento";
 const ADMIN_SESSION_KEY = "carrera-admin-unlocked";
 
@@ -438,7 +441,7 @@ function updateSummary() {
   summaryBodyEl.innerHTML = "";
   const realPos = getPositionMap(state.resultOrder);
 
-  VOTERS.forEach((user) => {
+  VOTERS_DISPLAY_ORDER.forEach((user) => {
     const tr = document.createElement("tr");
     const bet = state.bets[user];
     const score = Object.prototype.hasOwnProperty.call(state.scores, user)
