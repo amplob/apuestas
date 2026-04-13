@@ -1,31 +1,22 @@
 const RACERS = ["Albert", "Aniol", "Marc", "Roger", "Pere", "Gerard", "Yaiza"];
 const EXTRA_VOTERS = ["Jose", "Luis", "Cesar", "Flor"];
 const VOTERS = [...RACERS, ...EXTRA_VOTERS];
-const ADMIN_TOKEN = "token";
-const USER_PASSWORDS = {
-  Albert: "qmv",
-  Aniol: "rtp",
-  Marc: "xla",
-  Roger: "bne",
-  Pere: "kud",
-  Gerard: "fsm",
-  Yaiza: "hzo",
-  Jose: "381",
-  Luis: "642",
-  Cesar: "905",
-  Flor: "174",
-};
+const ADMIN_TOKEN = "kento";
 
 const STORAGE_KEY = "carrera-apuestas-v1";
 const APP_CONFIG = window.APP_CONFIG || {};
 const REMOTE_DB_URL = APP_CONFIG.remoteDbUrl || "";
+const LOCAL_PASSWORD_HASHES = APP_CONFIG.localPasswordHashes || {};
 
 const state = {
   currentUser: null,
   bets: {}, // { usuario: [orden] }
   scores: {}, // { usuario: numero }
   resultOrder: [...RACERS],
+  lastBetAt: {}, // { usuario: isoString }
 };
+
+let passwordHashes = null;
 
 const currentUserEl = document.getElementById("current-user");
 const betListEl = document.getElementById("bet-list");
@@ -57,6 +48,7 @@ function normalizeState(input) {
     ? input.resultOrder
     : [...RACERS];
   state.currentUser = input.currentUser || null;
+  state.lastBetAt = input.lastBetAt || {};
 }
 
 function loadState() {
@@ -105,6 +97,43 @@ async function loadStateRemote() {
     saveState();
     return true;
   } catch {
+    return false;
+  }
+}
+
+async function sha256(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function formatDateTime(isoDate) {
+  if (!isoDate) return "—";
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("ca-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+async function loadPasswordHashes() {
+  if (!REMOTE_DB_URL) {
+    passwordHashes = LOCAL_PASSWORD_HASHES;
+    return Object.keys(passwordHashes).length > 0;
+  }
+  try {
+    const response = await fetch(`${REMOTE_DB_URL}/passwordHashes.json`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    passwordHashes = data && typeof data === "object" ? data : {};
+    return true;
+  } catch {
+    passwordHashes = LOCAL_PASSWORD_HASHES;
     return false;
   }
 }
@@ -233,6 +262,7 @@ function updateSummary() {
       <td>${user}</td>
       <td>${betHtml}</td>
       <td>${score === null ? "null" : score}</td>
+      <td>${formatDateTime(state.lastBetAt[user])}</td>
     `;
     summaryBodyEl.appendChild(tr);
   });
@@ -270,15 +300,17 @@ async function saveBet() {
     return;
   }
 
-  const pass = userPassEl.value.trim().toLowerCase();
-  const expected = USER_PASSWORDS[state.currentUser];
+  const pass = userPassEl.value.trim();
+  const passHash = await sha256(`${state.currentUser}:${pass}`);
+  const expectedHash = passwordHashes ? passwordHashes[state.currentUser] : null;
 
-  if (pass !== expected) {
+  if (!expectedHash || passHash !== expectedHash) {
     setMessage(betMessageEl, "Clau incorrecta per a aquest usuari.", true);
     return;
   }
 
   state.bets[state.currentUser] = getOrderFromContainer(betListEl);
+  state.lastBetAt[state.currentUser] = new Date().toISOString();
   saveState();
   const remoteSaved = await saveStateRemote();
   updateSummary();
@@ -361,6 +393,7 @@ async function evaluateScores() {
 async function init() {
   loadState();
   const remoteLoaded = await loadStateRemote();
+  const hashesLoaded = await loadPasswordHashes();
   renderPositionLegend();
   createTokens(resultListEl, state.resultOrder, true);
   updateSummary();
@@ -390,7 +423,13 @@ async function init() {
   if (!REMOTE_DB_URL) {
     setMessage(
       adminMessageEl,
-      "Sense base remota configurada: les dades es guarden nomes al navegador.",
+      "Sense base remota configurada: dades i claus no son compartides.",
+      true
+    );
+  } else if (!hashesLoaded) {
+    setMessage(
+      adminMessageEl,
+      "No s'han pogut carregar les claus hashades de Firebase.",
       true
     );
   } else if (!remoteLoaded) {

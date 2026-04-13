@@ -32,21 +32,9 @@ Votantes extra (no corren, pero pueden apostar):
 
 Token admin:
 
-- `token`
+- `kento`
 
-Claves de apuesta por usuario (3 letras):
-
-- Albert: `qmv`
-- Aniol: `rtp`
-- Marc: `xla`
-- Roger: `bne`
-- Pere: `kud`
-- Gerard: `fsm`
-- Yaiza: `hzo`
-- Jose: `381`
-- Luis: `642`
-- Cesar: `905`
-- Flor: `174`
+Les claus dels usuaris ja no estan al frontend en text pla. Es validen per hash SHA-256.
 
 ## Como publicar en GitHub Pages
 
@@ -85,7 +73,17 @@ Con Firebase, las apuestas quedan compartidas y persistentes.
    - `remoteDbUrl: "https://TU-URL-DE-FIREBASE"`
 3. Guarda cambios y vuelve a subir a GitHub (`git add .`, `git commit`, `git push`).
 
-### 3) Reglas recomendadas para esta prueba
+### 3) Pujar hashes de claus a Firebase
+
+Executa des d'aquesta carpeta:
+
+- PowerShell:
+  - `$env:REMOTE_DB_URL="https://TU-URL-RTDB"` (opcional)
+  - `node .\scripts\seed-password-hashes.mjs`
+
+Aixo crea/actualitza `/passwordHashes` a la base de dades.
+
+### 4) Reglas recomendadas para esta prueba
 
 En `Realtime Database` -> `Rules`, para una prueba interna simple:
 
