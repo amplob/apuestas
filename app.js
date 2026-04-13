@@ -72,8 +72,21 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanStatePayload(state)));
 }
 
+function resetStateToDefaults() {
+  state.bets = {};
+  state.scores = {};
+  state.resultOrder = [...RACERS];
+  state.lastBetAt = {};
+  state.orderVersion = ORDER_VERSION;
+  delete state.currentUser;
+}
+
 function normalizeState(input) {
-  if (!input || typeof input !== "object") return;
+  if (input === null || input === undefined) {
+    resetStateToDefaults();
+    return;
+  }
+  if (typeof input !== "object") return;
 
   state.bets = { ...(input.bets || {}) };
   state.scores = { ...(input.scores || {}) };
@@ -160,10 +173,25 @@ async function loadStateRemote() {
     const response = await fetch(`${REMOTE_DB_URL}/state.json`, {
       method: "GET",
     });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    if (response.status === 404) {
+      resetStateToDefaults();
+      saveState();
+      return true;
     }
-    const remoteState = await response.json();
+    if (!response.ok) {
+      return false;
+    }
+    let remoteState;
+    try {
+      remoteState = await response.json();
+    } catch {
+      return false;
+    }
+    if (remoteState === null || typeof remoteState !== "object") {
+      resetStateToDefaults();
+      saveState();
+      return true;
+    }
     normalizeState(remoteState);
     saveState();
     return true;
@@ -587,9 +615,17 @@ async function evaluateScores() {
 }
 
 async function init() {
-  loadState();
-  const remoteLoaded = await loadStateRemote();
   const hashesLoaded = await loadPasswordHashes();
+
+  let remoteLoaded = false;
+  if (REMOTE_DB_URL) {
+    remoteLoaded = await loadStateRemote();
+    if (!remoteLoaded) {
+      loadState();
+    }
+  } else {
+    loadState();
+  }
 
   renderPositionLegend();
   createRankedRows(betListEl, [...RACERS], true);

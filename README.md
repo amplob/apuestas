@@ -5,6 +5,8 @@ Incluye persistencia remota opcional con Firebase Realtime Database para que los
 
 Sobre concurrencia: al guardar una prediccion, la app lee el estado remoto, fusiona solo la apuesta de ese usuario y vuelve a escribir (así varias personas pueden apostar a la vez sin pisarse). El campo `currentUser` ya no se usa; si aparece en Firebase es resto de datos antiguos y se puede borrar a mano.
 
+Si esborres `state` a Firebase pero encara veus prediccions velles: el navegador també guarda una còpia a `localStorage` (`carrera-apuestas-v1`). Amb connexió a Firebase, la app ara prioritza el remot (incloent 404 = tot buit). Si el GET al remot falla, es fa servir la còpia local. Per forçar neteja: DevTools → Application → Local Storage → esborra la clau del domini, o posa de nou un `state.json` buit `{}` al RTDB.
+
 ## Funcionalidades
 
 - Seleccion de usuario al entrar en la pagina.
@@ -36,7 +38,7 @@ Token admin:
 
 - `kento`
 
-Les claus dels usuaris ja no estan al frontend en text pla. Es validen per hash SHA-256.
+Les claus dels usuaris ja no estan al frontend en text pla. Es validen per hash SHA-256 (`usuari:clau`). Poden ser qualsevol text (per exemple `tensRao`); canvia-les a `scripts/seed-password-hashes.mjs` i torna a executar el script per actualitzar `/passwordHashes` a Firebase.
 
 ## Como publicar en GitHub Pages
 
