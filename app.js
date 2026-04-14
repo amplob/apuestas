@@ -5,7 +5,6 @@ const VOTERS_DISPLAY_ORDER = [...VOTERS].sort((a, b) =>
   a.localeCompare(b, "ca", { sensitivity: "accent" })
 );
 const ADMIN_TOKEN = "kento";
-const ADMIN_SESSION_KEY = "carrera-admin-unlocked";
 
 const STORAGE_KEY = "carrera-apuestas-v1";
 const ORDER_VERSION = 2;
@@ -17,11 +16,13 @@ const state = {
   bets: {},
   scores: {},
   resultOrder: [...RACERS],
+  resultTimes: {},
   lastBetAt: {},
   orderVersion: ORDER_VERSION,
 };
 
 let passwordHashes = null;
+let adminUnlocked = false;
 
 const betListEl = document.getElementById("bet-list");
 const resultListEl = document.getElementById("result-list");
@@ -31,8 +32,8 @@ const userPassEl = document.getElementById("user-pass");
 const betMessageEl = document.getElementById("bet-message");
 const adminMessageEl = document.getElementById("admin-message");
 const summaryBodyEl = document.getElementById("summary-body");
-const betPositionsEl = document.getElementById("bet-positions");
-const resultPositionsEl = document.getElementById("result-positions");
+const aggregateBodyEl = document.getElementById("aggregate-body");
+const betUserSelectEl = document.getElementById("bet-user-select");
 const podiumEl = document.getElementById("podium");
 const podiumHintEl = document.getElementById("podium-hint");
 const adminGateCard = document.getElementById("admin-gate-card");
@@ -47,6 +48,7 @@ function cleanStatePayload(src) {
     bets: { ...(s.bets || {}) },
     scores: { ...(s.scores || {}) },
     resultOrder: Array.isArray(s.resultOrder) ? [...s.resultOrder] : [...RACERS],
+    resultTimes: { ...(s.resultTimes || {}) },
     lastBetAt: { ...(s.lastBetAt || {}) },
     orderVersion: ORDER_VERSION,
   };
@@ -67,6 +69,15 @@ function migrateIfNeeded(obj) {
     }
   }
   obj.bets = bets;
+
+  // Migracion de estructura antigua: apuesta como array -> { order, times }
+  for (const u of VOTERS) {
+    const entry = obj.bets[u];
+    if (Array.isArray(entry)) {
+      obj.bets[u] = { order: entry, times: {} };
+    }
+  }
+
   obj.orderVersion = ORDER_VERSION;
 }
 
@@ -79,6 +90,7 @@ function resetStateToDefaults() {
   state.bets = {};
   state.scores = {};
   state.resultOrder = [...RACERS];
+  state.resultTimes = {};
   state.lastBetAt = {};
   state.orderVersion = ORDER_VERSION;
   delete state.currentUser;
@@ -96,10 +108,24 @@ function normalizeState(input) {
   state.resultOrder = Array.isArray(input.resultOrder)
     ? [...input.resultOrder]
     : [...RACERS];
+  state.resultTimes = { ...(input.resultTimes || {}) };
   state.lastBetAt = { ...(input.lastBetAt || {}) };
   state.orderVersion = input.orderVersion;
 
   migrateIfNeeded(state);
+  for (const u of VOTERS) {
+    const entry = state.bets[u];
+    if (Array.isArray(entry)) {
+      state.bets[u] = { order: entry, times: {} };
+      continue;
+    }
+    if (entry && typeof entry === "object" && Array.isArray(entry.order)) {
+      state.bets[u] = {
+        order: entry.order,
+        times: entry.times && typeof entry.times === "object" ? entry.times : {},
+      };
+    }
+  }
   delete state.currentUser;
 }
 
@@ -152,6 +178,7 @@ async function saveUserBetRemote(user) {
     bets: { ...(raw.bets || {}) },
     scores: { ...(raw.scores || {}) },
     resultOrder: Array.isArray(raw.resultOrder) ? [...raw.resultOrder] : [...RACERS],
+    resultTimes: { ...(raw.resultTimes || {}) },
     lastBetAt: { ...(raw.lastBetAt || {}) },
     orderVersion: raw.orderVersion,
   };
@@ -223,6 +250,145 @@ function formatDateTime(isoDate) {
   });
 }
 
+function parseTimeToSeconds(value) {
+  const txt = String(value || "").trim();
+  if (!txt) return null;
+
+  // Formatos aceptados: mm:ss, m:ss, mm:s, m:s
+  if (txt.includes(":")) {
+    const parts = txt.split(":");
+    if (parts.length !== 2) return null;
+    const min = Number(parts[0]);
+    const sec = Number(parts[1]);
+    if (
+      Number.isNaN(min) ||
+      Number.isNaN(sec) ||
+      min < 0 ||
+      min > 59 ||
+      sec < 0 ||
+      sec > 59
+    ) {
+      return null;
+    }
+    return min * 60 + sec;
+  }
+
+  // Formato solo dígitos: 3050 -> 30:50, 920 -> 9:20
+  const digits = txt.replace(/\D/g, "").slice(0, 4);
+  if (!digits) return null;
+  const padded = digits.padStart(4, "0");
+  const min = Number(padded.slice(0, 2));
+  const sec = Number(padded.slice(2));
+  if (min > 59 || sec > 59) return null;
+  return min * 60 + sec;
+}
+
+function digitsToTimeString(digits) {
+  const d = String(digits || "")
+    .replace(/\D/g, "")
+    .slice(0, 4);
+  if (!d) return "";
+
+  const mm = d.slice(0, 2).padStart(2, "0");
+  if (d.length <= 2) return `${mm}:00`;
+  if (d.length === 3) return `${mm}:${d[2]}0`;
+  return `${mm}:${d.slice(2, 4)}`;
+}
+
+function timeToDigits(value) {
+  const sec = parseTimeToSeconds(value);
+  if (sec === null) return "";
+  const min = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(min).padStart(2, "0")}${String(s).padStart(2, "0")}`;
+}
+
+function normalizeTimeInputValue(raw) {
+  const digits = String(raw || "")
+    .replace(/\D/g, "")
+    .slice(0, 4);
+  return digitsToTimeString(digits);
+}
+
+function bindTimeInputBehavior(input) {
+  if (!input) return;
+  input.dataset.digits = String(input.dataset.digits || "");
+  input.addEventListener("focus", () => {
+    input.dataset.replaceOnDigit = "1";
+    requestAnimationFrame(() => {
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    });
+  });
+
+  input.addEventListener("keydown", (e) => {
+    const isDigit = /^[0-9]$/.test(e.key);
+    const navKeys = ["Tab", "ArrowLeft", "ArrowRight", "Home", "End"];
+    if (navKeys.includes(e.key)) return;
+
+    if (isDigit) {
+      e.preventDefault();
+      let digits = input.dataset.digits || "";
+      if (input.dataset.replaceOnDigit === "1") {
+        digits = "";
+      }
+      digits = (digits + e.key).slice(0, 4);
+      input.dataset.digits = digits;
+      input.dataset.replaceOnDigit = "0";
+      input.value = digitsToTimeString(digits);
+      return;
+    }
+
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      let digits = input.dataset.digits || "";
+      if (input.dataset.replaceOnDigit === "1") {
+        digits = "";
+      } else {
+        digits = digits.slice(0, -1);
+      }
+      input.dataset.digits = digits;
+      input.dataset.replaceOnDigit = "0";
+      input.value = digitsToTimeString(digits);
+      return;
+    }
+
+    if (e.key === "Delete") {
+      e.preventDefault();
+      input.dataset.digits = "";
+      input.dataset.replaceOnDigit = "0";
+      input.value = "";
+      return;
+    }
+  });
+
+  input.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const pasted = (e.clipboardData?.getData("text") || "")
+      .replace(/\D/g, "")
+      .slice(0, 4);
+    input.dataset.digits = pasted;
+    input.dataset.replaceOnDigit = "0";
+    input.value = digitsToTimeString(pasted);
+  });
+
+  input.addEventListener("blur", () => {
+    const digits = String(input.dataset.digits || "")
+      .replace(/\D/g, "")
+      .slice(0, 4);
+    input.dataset.digits = digits;
+    input.value = digitsToTimeString(digits);
+  });
+}
+
+function formatSeconds(seconds) {
+  if (typeof seconds !== "number" || Number.isNaN(seconds)) return "--:--";
+  const bounded = Math.max(0, Math.min(3599, Math.round(seconds)));
+  const min = Math.floor(bounded / 60);
+  const sec = bounded % 60;
+  return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
 async function loadPasswordHashes() {
   if (!REMOTE_DB_URL) {
     passwordHashes = LOCAL_PASSWORD_HASHES;
@@ -260,7 +426,7 @@ function setMessage(el, text, isError = false) {
 }
 
 /** Ordre emmagatzemat i al DOM: índex 0 = 1r (dalt), últim índex = últim (baix) */
-function createRankedRows(container, order, draggable) {
+function createRankedRows(container, order, draggable, times = {}) {
   container.innerHTML = "";
   container.classList.add("token-list--ranked");
 
@@ -293,7 +459,22 @@ function createRankedRows(container, order, draggable) {
     token.draggable = draggable;
     token.setAttribute("aria-grabbed", "false");
 
+    const timeInput = document.createElement("input");
+    timeInput.className = "time-input";
+    timeInput.type = "text";
+    timeInput.placeholder = "mm:ss";
+    timeInput.inputMode = "numeric";
+    timeInput.maxLength = 5;
+    if (times && typeof times[name] === "number") {
+      timeInput.value = formatSeconds(times[name]);
+      timeInput.dataset.digits = timeToDigits(timeInput.value);
+    } else {
+      timeInput.dataset.digits = "";
+    }
+    bindTimeInputBehavior(timeInput);
+
     row.appendChild(token);
+    row.appendChild(timeInput);
     tokensWrap.appendChild(row);
   }
 
@@ -352,12 +533,37 @@ function getOrderFromRankedList(container) {
   return [...root.querySelectorAll(".rank-row")].map((row) => row.dataset.name);
 }
 
+function getTimesFromRankedList(container) {
+  const wrap = container.querySelector(".rank-tokens-wrap");
+  const root = wrap || container;
+  const out = {};
+  const rows = [...root.querySelectorAll(".rank-row")];
+  for (const row of rows) {
+    const name = row.dataset.name;
+    const input = row.querySelector(".time-input");
+    if (input) input.value = normalizeTimeInputValue(input.value);
+    const seconds = parseTimeToSeconds(input ? input.value : "");
+    if (seconds === null) return null;
+    out[name] = seconds;
+  }
+  return out;
+}
+
 function getPositionMap(order) {
   const pos = {};
   order.forEach((name, i) => {
     pos[name] = i;
   });
   return pos;
+}
+
+function getBetEntryForUser(user) {
+  const entry = state.bets[user];
+  if (!entry || !Array.isArray(entry.order)) return null;
+  return {
+    order: entry.order,
+    times: entry.times && typeof entry.times === "object" ? entry.times : {},
+  };
 }
 
 function getDeltaClass(delta) {
@@ -367,37 +573,54 @@ function getDeltaClass(delta) {
   return "delta-3plus";
 }
 
-function renderBetWithDeltas(bet, realPos, showDelta) {
+function renderBetWithDeltas(bet, betTimes, realPos, realTimes, showDelta) {
   const chips = bet.map((name, predictedPos) => {
     const place = predictedPos + 1;
-    const label = `${place}º ${name}`;
+    const timeTxt = formatSeconds(betTimes ? betTimes[name] : null);
+    const label = `${place}º ${name} (${timeTxt})`;
     if (!showDelta || typeof realPos[name] !== "number") {
       return `<span class="runner-chip">${label}</span>`;
     }
     const delta = Math.abs(predictedPos - realPos[name]);
-    return `<span class="runner-chip ${getDeltaClass(delta)}">${label} <strong>−${delta}</strong></span>`;
+    const real = realTimes && typeof realTimes[name] === "number" ? realTimes[name] : null;
+    const minuteDelta =
+      real === null || typeof betTimes[name] !== "number"
+        ? null
+        : Math.abs(real - betTimes[name]) / 60;
+    const minuteTxt = minuteDelta === null ? "" : ` · t ${minuteDelta.toFixed(1)}m`;
+    return `<span class="runner-chip ${getDeltaClass(delta)}">${label} <strong>−${delta}${minuteTxt}</strong></span>`;
   });
   return `<div class="bet-visual bet-visual--stack">${chips.join("")}</div>`;
 }
 
-function renderPositionLegend() {
-  const n = RACERS.length;
-  const parts = [];
-  for (let p = 1; p <= n; p++) {
-    parts.push(`${p}º`);
+function populateBetUserSelect() {
+  if (!betUserSelectEl) return;
+  betUserSelectEl.innerHTML = "";
+  VOTERS_DISPLAY_ORDER.forEach((u) => {
+    const opt = document.createElement("option");
+    opt.value = u;
+    opt.textContent = u;
+    betUserSelectEl.appendChild(opt);
+  });
+}
+
+function loadBetForSelectedUser() {
+  if (!betUserSelectEl) return;
+  const user = betUserSelectEl.value;
+  const entry = getBetEntryForUser(user);
+  if (entry) {
+    createRankedRows(betListEl, entry.order, true, entry.times);
+  } else {
+    createRankedRows(betListEl, [...RACERS], true, {});
   }
-  const text = `${parts.join(" → ")} (dalt primer → baix últim)`;
-  betPositionsEl.textContent = text;
-  resultPositionsEl.textContent = text;
 }
 
 function isAdminUnlocked() {
-  return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1";
+  return adminUnlocked;
 }
 
 function setAdminUnlocked(value) {
-  if (value) sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
-  else sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  adminUnlocked = Boolean(value);
   syncAdminPanelVisibility();
 }
 
@@ -419,8 +642,7 @@ function tryAdminUnlock() {
   }
   setAdminUnlocked(true);
   setMessage(adminGateMessageEl, "", false);
-  createRankedRows(resultListEl, state.resultOrder, true);
-  renderPositionLegend();
+  createRankedRows(resultListEl, state.resultOrder, true, state.resultTimes);
 }
 
 function updatePodium() {
@@ -462,23 +684,83 @@ function updateSummary() {
 
   VOTERS_DISPLAY_ORDER.forEach((user) => {
     const tr = document.createElement("tr");
-    const bet = state.bets[user];
+    const entry = state.bets[user];
+    const bet = entry && Array.isArray(entry.order) ? entry.order : null;
+    const betTimes = entry && entry.times ? entry.times : {};
     const score = Object.prototype.hasOwnProperty.call(state.scores, user)
       ? state.scores[user]
       : null;
+    const scoreText = score === null ? "null" : Number(score).toFixed(2);
     const betHtml = bet
-      ? renderBetWithDeltas(bet, realPos, score !== null)
+      ? renderBetWithDeltas(bet, betTimes, realPos, state.resultTimes, score !== null)
       : '<span class="no-bet">Sense predicció</span>';
     tr.innerHTML = `
       <td>${user}</td>
       <td>${betHtml}</td>
-      <td>${score === null ? "null" : score}</td>
+      <td>${scoreText}</td>
       <td>${formatDateTime(state.lastBetAt[user])}</td>
     `;
     summaryBodyEl.appendChild(tr);
   });
 
   updatePodium();
+  updateAggregateSummary();
+}
+
+function updateAggregateSummary() {
+  aggregateBodyEl.innerHTML = "";
+  const stats = {};
+  RACERS.forEach((r) => {
+    stats[r] = { posSum: 0, posCount: 0, timeSum: 0, timeCount: 0 };
+  });
+
+  for (const user of VOTERS) {
+    const entry = state.bets[user];
+    if (!entry || !Array.isArray(entry.order)) continue;
+    entry.order.forEach((racer, idx) => {
+      if (!stats[racer]) return;
+      stats[racer].posSum += idx + 1;
+      stats[racer].posCount += 1;
+      const sec = entry.times && typeof entry.times[racer] === "number" ? entry.times[racer] : null;
+      if (sec !== null) {
+        stats[racer].timeSum += sec;
+        stats[racer].timeCount += 1;
+      }
+    });
+  }
+
+  const rows = RACERS.map((r) => {
+    const s = stats[r];
+    if (!s.posCount) {
+      return { racer: r, posCount: 0, timeCount: 0, avgPos: null, avgSec: null };
+    }
+    return {
+      racer: r,
+      posCount: s.posCount,
+      timeCount: s.timeCount,
+      avgPos: s.posSum / s.posCount,
+      avgSec: s.timeCount > 0 ? s.timeSum / s.timeCount : null,
+    };
+  }).sort((a, b) => {
+    if (a.avgPos === null && b.avgPos === null) return a.racer.localeCompare(b.racer, "ca");
+    if (a.avgPos === null) return 1;
+    if (b.avgPos === null) return -1;
+    return a.avgPos - b.avgPos;
+  });
+
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    const posText =
+      row.avgPos === null ? "—" : `${row.avgPos.toFixed(2)} / ${row.posCount} pred.`;
+    const timeText =
+      row.avgSec === null ? "—" : `${formatSeconds(row.avgSec)} / ${row.timeCount} temps`;
+    tr.innerHTML = `
+      <td>${row.racer}</td>
+      <td>${posText}</td>
+      <td>${timeText}</td>
+    `;
+    aggregateBodyEl.appendChild(tr);
+  });
 }
 
 function showView(name) {
@@ -495,8 +777,7 @@ function showView(name) {
   if (name === "admin") {
     syncAdminPanelVisibility();
     if (isAdminUnlocked()) {
-      createRankedRows(resultListEl, state.resultOrder, true);
-      renderPositionLegend();
+      createRankedRows(resultListEl, state.resultOrder, true, state.resultTimes);
     }
   }
 }
@@ -510,10 +791,25 @@ async function saveBet() {
     return;
   }
 
-  state.bets[user] = getOrderFromRankedList(betListEl);
+  const order = getOrderFromRankedList(betListEl);
+  const times = getTimesFromRankedList(betListEl);
+  if (!times) {
+    setMessage(
+      betMessageEl,
+      "Temps invàlids. Usa format mm:ss (exemple 34:20, màxim 59:59).",
+      true
+    );
+    return;
+  }
+
+  state.bets[user] = { order, times };
   state.lastBetAt[user] = new Date().toISOString();
   saveState();
   const remoteSaved = await saveUserBetRemote(user);
+  if (betUserSelectEl) {
+    betUserSelectEl.value = user;
+    loadBetForSelectedUser();
+  }
   updateSummary();
   if (remoteSaved) {
     setMessage(betMessageEl, `Predicció guardada per a ${user}.`);
@@ -539,11 +835,21 @@ async function evaluateScores() {
   }
 
   const result = getOrderFromRankedList(resultListEl);
+  const resultTimes = getTimesFromRankedList(resultListEl);
+  if (!resultTimes) {
+    setMessage(
+      adminMessageEl,
+      "Temps reals invàlids. Usa format mm:ss (exemple 34:20, màxim 59:59).",
+      true
+    );
+    return;
+  }
 
   let merged = {
     bets: { ...state.bets },
     scores: { ...state.scores },
     resultOrder: [...state.resultOrder],
+    resultTimes: { ...state.resultTimes },
     lastBetAt: { ...state.lastBetAt },
     orderVersion: state.orderVersion,
   };
@@ -556,6 +862,7 @@ async function evaluateScores() {
         bets: { ...(raw.bets || {}) },
         scores: { ...(raw.scores || {}) },
         resultOrder: Array.isArray(raw.resultOrder) ? [...raw.resultOrder] : [...RACERS],
+        resultTimes: { ...(raw.resultTimes || {}) },
         lastBetAt: { ...(raw.lastBetAt || {}) },
         orderVersion: raw.orderVersion,
       };
@@ -564,7 +871,10 @@ async function evaluateScores() {
   }
 
   const betsForScoring = merged.bets;
-  const usersWithBet = VOTERS.filter((u) => Array.isArray(betsForScoring[u]));
+  const usersWithBet = VOTERS.filter((u) => {
+    const entry = betsForScoring[u];
+    return entry && Array.isArray(entry.order) && entry.order.length === RACERS.length;
+  });
   if (usersWithBet.length === 0) {
     setMessage(adminMessageEl, "No hi ha prediccions guardades per avaluar.", true);
     return;
@@ -576,23 +886,28 @@ async function evaluateScores() {
   });
 
   const rawScores = {};
-  let minScore = 0;
 
   usersWithBet.forEach((u) => {
-    const bet = betsForScoring[u];
-    let score = 0;
+    const entry = betsForScoring[u];
+    const bet = entry.order;
+    const betTimes = entry.times || {};
+    let penalty = 0;
     bet.forEach((name, predictedPos) => {
-      score -= Math.abs(predictedPos - realPos[name]);
+      penalty += Math.abs(predictedPos - realPos[name]) * 10;
+      const predictedSec = betTimes[name];
+      const realSec = resultTimes[name];
+      if (typeof predictedSec === "number" && typeof realSec === "number") {
+        penalty += Math.abs(predictedSec - realSec) / 60;
+      }
     });
-    rawScores[u] = score;
-    if (score < minScore) minScore = score;
+    const score = 250 - penalty;
+    rawScores[u] = Math.round(score * 100) / 100;
   });
 
-  const offset = Math.abs(minScore);
   const scores = {};
   VOTERS.forEach((u) => {
     if (Object.prototype.hasOwnProperty.call(rawScores, u)) {
-      scores[u] = rawScores[u] + offset;
+      scores[u] = rawScores[u];
     } else {
       scores[u] = null;
     }
@@ -602,11 +917,13 @@ async function evaluateScores() {
     bets: merged.bets,
     lastBetAt: merged.lastBetAt,
     resultOrder: result,
+    resultTimes,
     scores,
     orderVersion: ORDER_VERSION,
   };
 
   state.resultOrder = result;
+  state.resultTimes = resultTimes;
   state.scores = scores;
   state.bets = merged.bets;
   state.lastBetAt = merged.lastBetAt;
@@ -649,10 +966,10 @@ async function init() {
     loadState();
   }
 
-  renderPositionLegend();
-  createRankedRows(betListEl, [...RACERS], true);
+  populateBetUserSelect();
+  loadBetForSelectedUser();
   if (isAdminUnlocked()) {
-    createRankedRows(resultListEl, state.resultOrder, true);
+    createRankedRows(resultListEl, state.resultOrder, true, state.resultTimes);
   }
   updateSummary();
   syncAdminPanelVisibility();
@@ -667,6 +984,9 @@ async function init() {
   adminGateTokenEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") tryAdminUnlock();
   });
+  if (betUserSelectEl) {
+    betUserSelectEl.addEventListener("change", loadBetForSelectedUser);
+  }
 
   showView("summary");
 

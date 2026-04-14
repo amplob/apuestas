@@ -141,11 +141,45 @@ button:hover {
   padding: 12px;
 }
 
+.bet-compact {
+  width: max-content;
+  max-width: 100%;
+}
+
+.token-list--ranked {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+}
+
+.ladder-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #49617d;
+  width: calc(2.75rem + 12px + 220px + 12px + 84px);
+  max-width: 100%;
+}
+
+.ladder-head span:first-child {
+  width: calc(2.75rem + 12px + 220px);
+}
+
+.ladder-head span:last-child {
+  width: 84px;
+  text-align: center;
+}
+
 .rank-ladder-inner {
   display: grid;
-  grid-template-columns: 2.75rem minmax(0, 1fr);
+  grid-template-columns: 2.75rem max-content;
   column-gap: 12px;
   align-items: start;
+  width: max-content;
+  max-width: 100%;
 }
 
 .rank-badges-col {
@@ -160,16 +194,21 @@ button:hover {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 1;
-  min-width: 0;
+  align-items: flex-start;
+  width: max-content;
+  max-width: 100%;
 }
 
 .rank-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 220px 84px;
   align-items: center;
+  gap: 12px;
   padding: 0;
-  min-height: 46px;
+  min-height: 40px;
   box-sizing: border-box;
+  width: max-content;
+  max-width: 100%;
 }
 
 .rank-row.dragging {
@@ -181,7 +220,7 @@ button:hover {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 46px;
+  min-height: 40px;
   box-sizing: border-box;
   text-align: center;
   font-weight: 800;
@@ -195,12 +234,26 @@ button:hover {
 }
 
 .rank-row .token {
-  flex: 1;
   display: flex;
   align-items: center;
-  min-height: 46px;
-  border-radius: 10px;
+  min-height: 40px;
+  border-radius: 8px;
   text-align: left;
+  padding: 6px 10px;
+  width: 220px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.time-input {
+  width: 84px;
+  min-height: 32px;
+  text-align: center;
+  font-weight: 700;
+  border: 1px solid #b8cce0;
+  border-radius: 8px;
+  background: #ffffff;
+  margin-left: 4px;
 }
 
 .positions-text {
@@ -413,6 +466,13 @@ dialog::backdrop {
   .row select,
   .row button {
     width: 100%;
+  }
+
+  .bet-compact .row input,
+  .bet-compact .row select,
+  .bet-compact .row button {
+    width: auto;
+    max-width: 100%;
   }
 
   .token-list {

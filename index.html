@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prediccions Cursa Oficina</title>
+    <title>Porra de la cursa</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="container">
-      <h1>A la cursa d'enguany veurem qui és el més "petao"</h1>
+      <h1>Porra de la cursa</h1>
       <p class="hint">
         Sense ànims d'incentivar el joc i recordeu de no apostar, podeu predir
         el resultat.
@@ -16,7 +16,7 @@
 
       <nav class="view-nav" aria-label="Navegació principal">
         <button type="button" class="view-tab active" data-view="summary">
-          Resum i podi
+          Prediccions
         </button>
         <button type="button" class="view-tab" data-view="bet">Apostar</button>
         <button type="button" class="view-tab" data-view="admin">Resoldre</button>
@@ -32,17 +32,39 @@
 
         <section class="card">
           <h2>Resum de prediccions i puntuació</h2>
+          <p class="small">
+            Nova puntuació: base 250, restant 10 punts per cada posició de diferència i 1 punt per cada minut de diferència de temps.
+          </p>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Usuari</th>
-                  <th>Predicció (1º dalt → 7º baix)</th>
+                  <th>Predicció + temps (1º dalt → 7º baix)</th>
                   <th>Puntuació</th>
                   <th>Última aposta</th>
                 </tr>
               </thead>
               <tbody id="summary-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Resum agregat de prediccions</h2>
+          <p class="small">
+            Mitjana de posició i temps predit per corredor (entre totes les apostes guardades).
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Corredor</th>
+                  <th>Posició mitjana</th>
+                  <th>Temps mitjà</th>
+                </tr>
+              </thead>
+              <tbody id="aggregate-body"></tbody>
             </table>
           </div>
         </section>
@@ -52,24 +74,31 @@
       <div id="view-bet" class="view-panel" role="tabpanel" hidden>
         <section class="card">
           <h2>Fes la teva predicció</h2>
-          <p class="small">
-            Ordre vertical: <strong>dalt = 1r lloc</strong>,
-            <strong>baix = últim (7è)</strong>. Arrossega cada fila.
-          </p>
-          <p id="bet-positions" class="positions-text"></p>
-          <div
-            id="bet-list"
-            class="token-list token-list--vertical"
-            aria-label="Ordre de predicció"
-          ></div>
-          <div class="row margin-top">
-            <input
-              id="user-pass"
-              type="password"
-              autocomplete="off"
-              placeholder="La teva clau"
-            />
-            <button id="save-bet-btn" type="button">Guardar predicció</button>
+          <div class="bet-compact">
+            <div class="row">
+              <label for="bet-user-select"><strong>Aposto com a:</strong></label>
+              <select id="bet-user-select"></select>
+            </div>
+            <div class="ladder-wrap">
+              <div class="ladder-head">
+                <span>Posicions</span>
+                <span>Temps</span>
+              </div>
+              <div
+                id="bet-list"
+                class="token-list token-list--vertical"
+                aria-label="Ordre de predicció"
+              ></div>
+            </div>
+            <div class="row margin-top">
+              <input
+                id="user-pass"
+                type="password"
+                autocomplete="off"
+                placeholder="La teva clau"
+              />
+              <button id="save-bet-btn" type="button">Guardar predicció</button>
+            </div>
           </div>
           <p id="bet-message" class="message"></p>
         </section>
@@ -94,16 +123,17 @@
 
         <section class="card hidden" id="admin-panel-card">
           <h2>Resultat oficial i avaluació</h2>
-          <p class="small">
-            Mateix ordre: <strong>dalt = 1r</strong>,
-            <strong>baix = 7è</strong>.
-          </p>
-          <p id="result-positions" class="positions-text"></p>
-          <div
-            id="result-list"
-            class="token-list token-list--vertical"
-            aria-label="Resultat oficial"
-          ></div>
+          <div class="ladder-wrap">
+            <div class="ladder-head">
+              <span>Posicions</span>
+              <span>Temps reals</span>
+            </div>
+            <div
+              id="result-list"
+              class="token-list token-list--vertical"
+              aria-label="Resultat oficial"
+            ></div>
+          </div>
           <div class="row margin-top">
             <button id="evaluate-btn" type="button">Avaluar puntuacions</button>
           </div>
