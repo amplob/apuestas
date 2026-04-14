@@ -1,7 +1,8 @@
 const RACERS = ["Albert", "Aniol", "Marc", "Roger", "Pere", "Gerard", "Yaiza"];
-const EXTRA_VOTERS = ["Jose", "Luis", "Cesar", "Flor"];
-const VOTERS = [...RACERS, ...EXTRA_VOTERS];
-const VOTERS_DISPLAY_ORDER = [...VOTERS].sort((a, b) =>
+const VOTERS = ["Albert", "Aniol", "Marc", "Roger", "Pere", "Gerard", "Jose", "Luis", "Cesar", "Flor"];
+const VIRTUAL_BETTOR = "Mitjana";
+const SCORE_USERS = [...VOTERS, VIRTUAL_BETTOR];
+const VOTERS_DISPLAY_ORDER = [...SCORE_USERS].sort((a, b) =>
   a.localeCompare(b, "ca", { sensitivity: "accent" })
 );
 const ADMIN_TOKEN = "kento";
@@ -13,6 +14,7 @@ const REMOTE_DB_URL = APP_CONFIG.remoteDbUrl || "";
 const LOCAL_PASSWORD_HASHES = APP_CONFIG.localPasswordHashes || {};
 const POSITION_PENALTY = 10;
 const MINUTE_PENALTY = 4;
+const BET_DEADLINE = new Date("2026-04-17T09:00:00+02:00");
 
 const state = {
   bets: {},
@@ -43,6 +45,7 @@ const adminPanelCard = document.getElementById("admin-panel-card");
 const adminGateTokenEl = document.getElementById("admin-gate-token");
 const adminUnlockBtn = document.getElementById("admin-unlock-btn");
 const adminGateMessageEl = document.getElementById("admin-gate-message");
+const betDeadlineBannerEl = document.getElementById("bet-deadline-banner");
 
 function cleanStatePayload(src) {
   const s = src || {};
@@ -289,12 +292,12 @@ function digitsToTimeString(digits) {
   const d = String(digits || "")
     .replace(/\D/g, "")
     .slice(0, 4);
-  if (!d) return "";
-
-  const mm = d.slice(0, 2).padStart(2, "0");
-  if (d.length <= 2) return `${mm}:00`;
-  if (d.length === 3) return `${mm}:${d[2]}0`;
-  return `${mm}:${d.slice(2, 4)}`;
+  const slots = ["_", "_", ":", "_", "_"];
+  if (d[0]) slots[0] = d[0];
+  if (d[1]) slots[1] = d[1];
+  if (d[2]) slots[3] = d[2];
+  if (d[3]) slots[4] = d[3];
+  return slots.join("");
 }
 
 function timeToDigits(value) {
@@ -309,18 +312,34 @@ function normalizeTimeInputValue(raw) {
   const digits = String(raw || "")
     .replace(/\D/g, "")
     .slice(0, 4);
+  if (!digits) return "";
   return digitsToTimeString(digits);
+}
+
+function getCaretPosForDigitsCount(count) {
+  if (count <= 0) return 0;
+  if (count === 1) return 1;
+  if (count === 2) return 3;
+  if (count === 3) return 4;
+  return 5;
 }
 
 function bindTimeInputBehavior(input) {
   if (!input) return;
   input.dataset.digits = String(input.dataset.digits || "");
   input.addEventListener("focus", () => {
-    input.dataset.replaceOnDigit = "1";
-    requestAnimationFrame(() => {
-      const len = input.value.length;
-      input.setSelectionRange(len, len);
-    });
+    const digits = String(input.dataset.digits || "").replace(/\D/g, "").slice(0, 4);
+    input.dataset.digits = digits;
+    input.value = digitsToTimeString(digits);
+    const caret = getCaretPosForDigitsCount(digits.length);
+    requestAnimationFrame(() => input.setSelectionRange(caret, caret));
+  });
+
+  input.addEventListener("click", (e) => {
+    e.preventDefault();
+    const digits = String(input.dataset.digits || "").replace(/\D/g, "").slice(0, 4);
+    const caret = getCaretPosForDigitsCount(digits.length);
+    input.setSelectionRange(caret, caret);
   });
 
   input.addEventListener("keydown", (e) => {
@@ -330,35 +349,29 @@ function bindTimeInputBehavior(input) {
 
     if (isDigit) {
       e.preventDefault();
-      let digits = input.dataset.digits || "";
-      if (input.dataset.replaceOnDigit === "1") {
-        digits = "";
-      }
+      let digits = String(input.dataset.digits || "").replace(/\D/g, "").slice(0, 4);
       digits = (digits + e.key).slice(0, 4);
       input.dataset.digits = digits;
-      input.dataset.replaceOnDigit = "0";
       input.value = digitsToTimeString(digits);
+      const caret = getCaretPosForDigitsCount(digits.length);
+      input.setSelectionRange(caret, caret);
       return;
     }
 
     if (e.key === "Backspace") {
       e.preventDefault();
-      let digits = input.dataset.digits || "";
-      if (input.dataset.replaceOnDigit === "1") {
-        digits = "";
-      } else {
-        digits = digits.slice(0, -1);
-      }
+      let digits = String(input.dataset.digits || "").replace(/\D/g, "").slice(0, 4);
+      digits = digits.slice(0, -1);
       input.dataset.digits = digits;
-      input.dataset.replaceOnDigit = "0";
-      input.value = digitsToTimeString(digits);
+      input.value = digits ? digitsToTimeString(digits) : "";
+      const caret = getCaretPosForDigitsCount(digits.length);
+      if (digits) input.setSelectionRange(caret, caret);
       return;
     }
 
     if (e.key === "Delete") {
       e.preventDefault();
       input.dataset.digits = "";
-      input.dataset.replaceOnDigit = "0";
       input.value = "";
       return;
     }
@@ -370,8 +383,9 @@ function bindTimeInputBehavior(input) {
       .replace(/\D/g, "")
       .slice(0, 4);
     input.dataset.digits = pasted;
-    input.dataset.replaceOnDigit = "0";
-    input.value = digitsToTimeString(pasted);
+    input.value = pasted ? digitsToTimeString(pasted) : "";
+    const caret = getCaretPosForDigitsCount(pasted.length);
+    if (pasted) input.setSelectionRange(caret, caret);
   });
 
   input.addEventListener("blur", () => {
@@ -379,7 +393,7 @@ function bindTimeInputBehavior(input) {
       .replace(/\D/g, "")
       .slice(0, 4);
     input.dataset.digits = digits;
-    input.value = digitsToTimeString(digits);
+    input.value = digits ? digitsToTimeString(digits) : "";
   });
 }
 
@@ -425,6 +439,49 @@ function setMessage(el, text, isError = false) {
   el.classList.remove("ok", "error");
   if (!text) return;
   el.classList.add(isError ? "error" : "ok");
+}
+
+function getRemainingMsToDeadline() {
+  return BET_DEADLINE.getTime() - Date.now();
+}
+
+function formatRemaining(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m ${s}s`;
+  return `${h}h ${m}m ${s}s`;
+}
+
+function isBettingClosed() {
+  return getRemainingMsToDeadline() <= 0;
+}
+
+function setBettingDisabled(disabled) {
+  saveBetBtn.disabled = disabled;
+  if (betUserSelectEl) betUserSelectEl.disabled = disabled;
+  userPassEl.disabled = disabled;
+  betListEl.querySelectorAll(".time-input").forEach((el) => {
+    el.disabled = disabled;
+  });
+}
+
+function updateDeadlineBanner() {
+  if (!betDeadlineBannerEl) return;
+  const remaining = getRemainingMsToDeadline();
+  if (remaining <= 0) {
+    betDeadlineBannerEl.textContent = "Les apostes estan tancades.";
+    betDeadlineBannerEl.classList.add("closed");
+    setBettingDisabled(true);
+    return;
+  }
+  betDeadlineBannerEl.textContent = `Falten ${formatRemaining(
+    remaining
+  )} perquè es tanquin les apostes (divendres 17, 09:00).`;
+  betDeadlineBannerEl.classList.remove("closed");
+  setBettingDisabled(false);
 }
 
 /** Ordre emmagatzemat i al DOM: índex 0 = 1r (dalt), últim índex = últim (baix) */
@@ -568,6 +625,54 @@ function getBetEntryForUser(user) {
   };
 }
 
+function computeAverageBetFromCurrentBets(bets) {
+  const source = bets || {};
+  const validEntries = VOTERS.map((u) => source[u]).filter(
+    (entry) => entry && Array.isArray(entry.order) && entry.order.length === RACERS.length
+  );
+  if (validEntries.length === 0) return null;
+
+  const posAgg = {};
+  const timeAgg = {};
+  RACERS.forEach((r) => {
+    posAgg[r] = { sum: 0, count: 0 };
+    timeAgg[r] = { sum: 0, count: 0 };
+  });
+
+  validEntries.forEach((entry) => {
+    entry.order.forEach((racer, idx) => {
+      if (!posAgg[racer]) return;
+      posAgg[racer].sum += idx;
+      posAgg[racer].count += 1;
+      const sec =
+        entry.times && typeof entry.times[racer] === "number"
+          ? entry.times[racer]
+          : null;
+      if (sec !== null) {
+        timeAgg[racer].sum += sec;
+        timeAgg[racer].count += 1;
+      }
+    });
+  });
+
+  const avgPosIdx = {};
+  const times = {};
+  RACERS.forEach((r) => {
+    avgPosIdx[r] = posAgg[r].count ? posAgg[r].sum / posAgg[r].count : RACERS.length - 1;
+    if (timeAgg[r].count) {
+      times[r] = timeAgg[r].sum / timeAgg[r].count;
+    }
+  });
+
+  const order = [...RACERS].sort((a, b) => {
+    const d = avgPosIdx[a] - avgPosIdx[b];
+    if (d !== 0) return d;
+    return a.localeCompare(b, "ca");
+  });
+
+  return { order, times, avgPosIdx };
+}
+
 function getDeltaClass(delta) {
   if (delta === 0) return "delta-0";
   if (delta === 1) return "delta-1";
@@ -575,15 +680,44 @@ function getDeltaClass(delta) {
   return "delta-3plus";
 }
 
-function renderBetWithDeltas(bet, betTimes, realPos, realTimes, showDelta) {
+function getPenaltyClass(totalPenalty) {
+  if (totalPenalty < 5) return "delta-best";
+  if (totalPenalty <= 10) return "delta-0";
+  if (totalPenalty <= 25) return "delta-1";
+  if (totalPenalty <= 40) return "delta-2";
+  return "delta-3plus";
+}
+
+function fmtNum(value, decimals = 1) {
+  const n = Number(value);
+  if (Number.isNaN(n)) return "0";
+  return Number(n.toFixed(decimals)).toString();
+}
+
+function renderBetWithDeltas(
+  bet,
+  betTimes,
+  realPos,
+  realTimes,
+  showDelta,
+  posOverride = null
+) {
   const chips = bet.map((name, predictedPos) => {
-    const place = predictedPos + 1;
+    const predictedIndex =
+      posOverride && typeof posOverride[name] === "number"
+        ? posOverride[name]
+        : predictedPos;
+    const place = predictedIndex + 1;
+    const placeText =
+      posOverride && typeof posOverride[name] === "number"
+        ? place.toFixed(2)
+        : String(Math.round(place));
     const timeTxt = formatSeconds(betTimes ? betTimes[name] : null);
-    const label = `${place}º ${name} (${timeTxt})`;
+    const label = `${placeText}º ${name} (${timeTxt})`;
     if (!showDelta || typeof realPos[name] !== "number") {
       return `<span class="runner-chip">${label}</span>`;
     }
-    const delta = Math.abs(predictedPos - realPos[name]);
+    const delta = Math.abs(predictedIndex - realPos[name]);
     const real = realTimes && typeof realTimes[name] === "number" ? realTimes[name] : null;
     const minuteDelta =
       real === null || typeof betTimes[name] !== "number"
@@ -593,11 +727,14 @@ function renderBetWithDeltas(bet, betTimes, realPos, realTimes, showDelta) {
       minuteDelta === null ? 0 : Number((minuteDelta * MINUTE_PENALTY).toFixed(1));
     const posPenalty = delta * POSITION_PENALTY;
     const totalPenalty = Number((posPenalty + minutePenalty).toFixed(1));
+    const deltaTxt = fmtNum(delta, 2);
+    const minuteTxt = fmtNum(minutePenalty, 1);
+    const totalTxt = fmtNum(totalPenalty, 1);
     const breakdown =
       minuteDelta === null
-        ? `−(${delta}*${POSITION_PENALTY} + 0.0) = −${totalPenalty}`
-        : `−(${delta}*${POSITION_PENALTY} + ${minutePenalty}) = −${totalPenalty}`;
-    return `<span class="runner-chip ${getDeltaClass(delta)}">${label} <strong>${breakdown}</strong></span>`;
+        ? `−(${deltaTxt}*${POSITION_PENALTY} + 0.0) = −${totalTxt}`
+        : `−(${deltaTxt}*${POSITION_PENALTY} + ${minuteTxt}) = −${totalTxt}`;
+    return `<span class="runner-chip ${getPenaltyClass(totalPenalty)}">${label} <strong>${breakdown}</strong></span>`;
   });
   return `<div class="bet-visual bet-visual--stack">${chips.join("")}</div>`;
 }
@@ -605,7 +742,7 @@ function renderBetWithDeltas(bet, betTimes, realPos, realTimes, showDelta) {
 function populateBetUserSelect() {
   if (!betUserSelectEl) return;
   betUserSelectEl.innerHTML = "";
-  VOTERS_DISPLAY_ORDER.forEach((u) => {
+  [...VOTERS].sort((a, b) => a.localeCompare(b, "ca")).forEach((u) => {
     const opt = document.createElement("option");
     opt.value = u;
     opt.textContent = u;
@@ -655,7 +792,7 @@ function tryAdminUnlock() {
 }
 
 function updatePodium() {
-  const ranked = VOTERS.filter((u) => typeof state.scores[u] === "number")
+  const ranked = SCORE_USERS.filter((u) => typeof state.scores[u] === "number")
     .map((u) => ({ user: u, score: state.scores[u] }))
     .sort((a, b) => b.score - a.score);
 
@@ -690,10 +827,11 @@ function updatePodium() {
 function updateSummary() {
   summaryBodyEl.innerHTML = "";
   const realPos = getPositionMap(state.resultOrder);
+  const averageBet = computeAverageBetFromCurrentBets(state.bets);
 
   VOTERS_DISPLAY_ORDER.forEach((user) => {
     const tr = document.createElement("tr");
-    const entry = state.bets[user];
+    const entry = user === VIRTUAL_BETTOR ? averageBet : state.bets[user];
     const bet = entry && Array.isArray(entry.order) ? entry.order : null;
     const betTimes = entry && entry.times ? entry.times : {};
     const score = Object.prototype.hasOwnProperty.call(state.scores, user)
@@ -701,13 +839,21 @@ function updateSummary() {
       : null;
     const scoreText = score === null ? "null" : Number(score).toFixed(2);
     const betHtml = bet
-      ? renderBetWithDeltas(bet, betTimes, realPos, state.resultTimes, score !== null)
+      ? renderBetWithDeltas(
+          bet,
+          betTimes,
+          realPos,
+          state.resultTimes,
+          score !== null,
+          user === VIRTUAL_BETTOR && averageBet ? averageBet.avgPosIdx : null
+        )
       : '<span class="no-bet">Sense predicció</span>';
+    const lastBetText = user === VIRTUAL_BETTOR ? "—" : formatDateTime(state.lastBetAt[user]);
     tr.innerHTML = `
       <td>${user}</td>
       <td>${betHtml}</td>
       <td>${scoreText}</td>
-      <td>${formatDateTime(state.lastBetAt[user])}</td>
+      <td>${lastBetText}</td>
     `;
     summaryBodyEl.appendChild(tr);
   });
@@ -792,6 +938,12 @@ function showView(name) {
 }
 
 async function saveBet() {
+  if (isBettingClosed()) {
+    updateDeadlineBanner();
+    setMessage(betMessageEl, "Les apostes ja estan tancades.", true);
+    return;
+  }
+
   const pass = userPassEl.value.trim();
   const user = await resolveUserFromCode(pass);
 
@@ -922,6 +1074,24 @@ async function evaluateScores() {
     }
   });
 
+  const averageBet = computeAverageBetFromCurrentBets(merged.bets);
+  if (averageBet) {
+    let avgPenalty = 0;
+    RACERS.forEach((racer) => {
+      const predictedIdx = averageBet.avgPosIdx[racer];
+      avgPenalty += Math.abs(predictedIdx - realPos[racer]) * POSITION_PENALTY;
+      const predictedSec =
+        typeof averageBet.times[racer] === "number" ? averageBet.times[racer] : null;
+      const realSec = resultTimes[racer];
+      if (predictedSec !== null && typeof realSec === "number") {
+        avgPenalty += (Math.abs(predictedSec - realSec) / 60) * MINUTE_PENALTY;
+      }
+    });
+    scores[VIRTUAL_BETTOR] = Math.round((250 - avgPenalty) * 100) / 100;
+  } else {
+    scores[VIRTUAL_BETTOR] = null;
+  }
+
   const final = {
     bets: merged.bets,
     lastBetAt: merged.lastBetAt,
@@ -996,6 +1166,9 @@ async function init() {
   if (betUserSelectEl) {
     betUserSelectEl.addEventListener("change", loadBetForSelectedUser);
   }
+
+  updateDeadlineBanner();
+  setInterval(updateDeadlineBanner, 1000);
 
   showView("summary");
 

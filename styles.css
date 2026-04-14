@@ -24,6 +24,22 @@ h2 {
   color: #4d5b6a;
 }
 
+.deadline-banner {
+  margin: 6px 0 14px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  color: #7a4a00;
+  background: #fff4dd;
+  border: 1px solid #f0d39a;
+}
+
+.deadline-banner.closed {
+  color: #8b1d1d;
+  background: #fdeaea;
+  border-color: #e2aaaa;
+}
+
 .small {
   font-size: 0.9rem;
   color: #4d5b6a;
@@ -142,6 +158,13 @@ button:hover {
 }
 
 .bet-compact {
+  display: inline-block;
+  width: max-content;
+  max-width: 100%;
+}
+
+.ladder-wrap {
+  display: inline-block;
   width: max-content;
   max-width: 100%;
 }
@@ -161,6 +184,11 @@ button:hover {
   font-weight: 700;
   color: #49617d;
   width: calc(2.75rem + 12px + 220px + 12px + 84px);
+  max-width: 100%;
+}
+
+.ladder-wrap .token-list {
+  width: max-content;
   max-width: 100%;
 }
 
@@ -403,6 +431,13 @@ td {
   font-weight: 700;
 }
 
+.runner-chip.delta-best {
+  border-color: #4f88ff;
+  background: #ebf2ff;
+  color: #1f4fa8;
+  font-weight: 700;
+}
+
 .runner-chip.delta-1 {
   border-color: #e2af2c;
   background: #fff7e3;
@@ -472,6 +507,11 @@ dialog::backdrop {
   .bet-compact .row select,
   .bet-compact .row button {
     width: auto;
+    max-width: 100%;
+  }
+
+  .bet-compact .row {
+    width: max-content;
     max-width: 100%;
   }
 
