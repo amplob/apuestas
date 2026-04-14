@@ -11,6 +11,8 @@ const ORDER_VERSION = 2;
 const APP_CONFIG = window.APP_CONFIG || {};
 const REMOTE_DB_URL = APP_CONFIG.remoteDbUrl || "";
 const LOCAL_PASSWORD_HASHES = APP_CONFIG.localPasswordHashes || {};
+const POSITION_PENALTY = 10;
+const MINUTE_PENALTY = 4;
 
 const state = {
   bets: {},
@@ -587,8 +589,15 @@ function renderBetWithDeltas(bet, betTimes, realPos, realTimes, showDelta) {
       real === null || typeof betTimes[name] !== "number"
         ? null
         : Math.abs(real - betTimes[name]) / 60;
-    const minuteTxt = minuteDelta === null ? "" : ` · t ${minuteDelta.toFixed(1)}m`;
-    return `<span class="runner-chip ${getDeltaClass(delta)}">${label} <strong>−${delta}${minuteTxt}</strong></span>`;
+    const minutePenalty =
+      minuteDelta === null ? 0 : Number((minuteDelta * MINUTE_PENALTY).toFixed(1));
+    const posPenalty = delta * POSITION_PENALTY;
+    const totalPenalty = Number((posPenalty + minutePenalty).toFixed(1));
+    const breakdown =
+      minuteDelta === null
+        ? `−(${delta}*${POSITION_PENALTY} + 0.0) = −${totalPenalty}`
+        : `−(${delta}*${POSITION_PENALTY} + ${minutePenalty}) = −${totalPenalty}`;
+    return `<span class="runner-chip ${getDeltaClass(delta)}">${label} <strong>${breakdown}</strong></span>`;
   });
   return `<div class="bet-visual bet-visual--stack">${chips.join("")}</div>`;
 }
@@ -893,11 +902,11 @@ async function evaluateScores() {
     const betTimes = entry.times || {};
     let penalty = 0;
     bet.forEach((name, predictedPos) => {
-      penalty += Math.abs(predictedPos - realPos[name]) * 10;
+      penalty += Math.abs(predictedPos - realPos[name]) * POSITION_PENALTY;
       const predictedSec = betTimes[name];
       const realSec = resultTimes[name];
       if (typeof predictedSec === "number" && typeof realSec === "number") {
-        penalty += Math.abs(predictedSec - realSec) / 60;
+        penalty += (Math.abs(predictedSec - realSec) / 60) * MINUTE_PENALTY;
       }
     });
     const score = 250 - penalty;
