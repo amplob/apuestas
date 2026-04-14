@@ -141,22 +141,48 @@ button:hover {
   padding: 12px;
 }
 
+.rank-ladder-inner {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: start;
+}
+
+.rank-badges-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 0;
+}
+
+.rank-tokens-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
 .rank-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: #f3f7fc;
-  border: 1px solid #d4e2f2;
+  padding: 0;
+  min-height: 46px;
+  box-sizing: border-box;
 }
 
 .rank-row.dragging {
   opacity: 0.55;
 }
 
-.rank-badge {
-  flex: 0 0 2.25rem;
+.rank-badges-col .rank-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 46px;
+  box-sizing: border-box;
   text-align: center;
   font-weight: 800;
   font-size: 0.85rem;
@@ -165,10 +191,14 @@ button:hover {
   border-radius: 8px;
   padding: 6px 4px;
   border: 1px solid #b8cce0;
+  flex-shrink: 0;
 }
 
 .rank-row .token {
   flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 46px;
   border-radius: 10px;
   text-align: left;
 }

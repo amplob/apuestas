@@ -262,16 +262,30 @@ function setMessage(el, text, isError = false) {
 /** Ordre emmagatzemat i al DOM: índex 0 = 1r (dalt), últim índex = últim (baix) */
 function createRankedRows(container, order, draggable) {
   container.innerHTML = "";
-  const n = order.length;
-  order.forEach((name, index) => {
-    const place = index + 1;
-    const row = document.createElement("div");
-    row.className = "rank-row";
-    row.dataset.name = name;
+  container.classList.add("token-list--ranked");
 
+  const n = order.length;
+  const inner = document.createElement("div");
+  inner.className = "rank-ladder-inner";
+
+  const badgesCol = document.createElement("div");
+  badgesCol.className = "rank-badges-col";
+  badgesCol.setAttribute("aria-hidden", "true");
+
+  const tokensWrap = document.createElement("div");
+  tokensWrap.className = "rank-tokens-wrap";
+
+  for (let i = 0; i < n; i++) {
+    const place = i + 1;
     const badge = document.createElement("span");
     badge.className = "rank-badge";
     badge.textContent = `${place}º`;
+    badgesCol.appendChild(badge);
+
+    const name = order[i];
+    const row = document.createElement("div");
+    row.className = "rank-row";
+    row.dataset.name = name;
 
     const token = document.createElement("div");
     token.className = "token";
@@ -279,12 +293,15 @@ function createRankedRows(container, order, draggable) {
     token.draggable = draggable;
     token.setAttribute("aria-grabbed", "false");
 
-    row.appendChild(badge);
     row.appendChild(token);
-    container.appendChild(row);
-  });
+    tokensWrap.appendChild(row);
+  }
 
-  if (draggable) enableVerticalDrag(container);
+  inner.appendChild(badgesCol);
+  inner.appendChild(tokensWrap);
+  container.appendChild(inner);
+
+  if (draggable) enableVerticalDrag(tokensWrap);
 }
 
 function enableVerticalDrag(container) {
@@ -330,7 +347,9 @@ function getDragAfterRow(container, y) {
 }
 
 function getOrderFromRankedList(container) {
-  return [...container.querySelectorAll(".rank-row")].map((row) => row.dataset.name);
+  const wrap = container.querySelector(".rank-tokens-wrap");
+  const root = wrap || container;
+  return [...root.querySelectorAll(".rank-row")].map((row) => row.dataset.name);
 }
 
 function getPositionMap(order) {
