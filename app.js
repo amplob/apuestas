@@ -1,7 +1,9 @@
 const RACERS = ["Albert", "Aniol", "Marc", "Roger", "Pere", "Gerard", "Yaiza"];
 const VOTERS = ["Albert", "Aniol", "Marc", "Roger", "Pere", "Gerard", "Jose", "Luis", "Cesar", "Flor"];
-const VIRTUAL_BETTOR = "Mitjana";
-const SCORE_USERS = [...VOTERS, VIRTUAL_BETTOR];
+const VIRTUAL_AVG_BETTOR = "Mitjana de la Oficina";
+const VIRTUAL_SELF_BETTOR = "Conozco Mi Cuerpo des de los 13";
+const VIRTUAL_BETTORS = [VIRTUAL_AVG_BETTOR, VIRTUAL_SELF_BETTOR];
+const SCORE_USERS = [...VOTERS, ...VIRTUAL_BETTORS];
 const VOTERS_DISPLAY_ORDER = [...SCORE_USERS].sort((a, b) =>
   a.localeCompare(b, "ca", { sensitivity: "accent" })
 );
@@ -673,6 +675,53 @@ function computeAverageBetFromCurrentBets(bets) {
   return { order, times, avgPosIdx };
 }
 
+function computeSelfKnowledgeBetFromCurrentBets(bets, averageBet) {
+  const source = bets || {};
+  const times = {};
+  const avgPosIdx = averageBet && averageBet.avgPosIdx ? averageBet.avgPosIdx : {};
+  const avgTimes = averageBet && averageBet.times ? averageBet.times : {};
+
+  RACERS.forEach((racer) => {
+    const ownEntry = source[racer];
+    const ownTime =
+      ownEntry &&
+      ownEntry.times &&
+      typeof ownEntry.times[racer] === "number"
+        ? ownEntry.times[racer]
+        : null;
+    if (ownTime !== null) {
+      times[racer] = ownTime;
+    } else if (typeof avgTimes[racer] === "number") {
+      // Fallback per corredors sense aposta pròpia (p. ex. Yaiza)
+      times[racer] = avgTimes[racer];
+    }
+  });
+
+  const randomTie = {};
+  RACERS.forEach((r) => {
+    randomTie[r] = Math.random();
+  });
+
+  const order = [...RACERS].sort((a, b) => {
+    const ta = typeof times[a] === "number" ? times[a] : Number.POSITIVE_INFINITY;
+    const tb = typeof times[b] === "number" ? times[b] : Number.POSITIVE_INFINITY;
+    if (ta !== tb) return ta - tb;
+
+    const pa = typeof avgPosIdx[a] === "number" ? avgPosIdx[a] : Number.POSITIVE_INFINITY;
+    const pb = typeof avgPosIdx[b] === "number" ? avgPosIdx[b] : Number.POSITIVE_INFINITY;
+    if (pa !== pb) return pa - pb;
+
+    const ata = typeof avgTimes[a] === "number" ? avgTimes[a] : Number.POSITIVE_INFINITY;
+    const atb = typeof avgTimes[b] === "number" ? avgTimes[b] : Number.POSITIVE_INFINITY;
+    if (ata !== atb) return ata - atb;
+
+    // Tie-break final aleatori per gestionar empats múltiples sense errors.
+    return randomTie[a] - randomTie[b];
+  });
+
+  return { order, times };
+}
+
 function getDeltaClass(delta) {
   if (delta === 0) return "delta-0";
   if (delta === 1) return "delta-1";
@@ -828,10 +877,16 @@ function updateSummary() {
   summaryBodyEl.innerHTML = "";
   const realPos = getPositionMap(state.resultOrder);
   const averageBet = computeAverageBetFromCurrentBets(state.bets);
+  const selfKnowledgeBet = computeSelfKnowledgeBetFromCurrentBets(state.bets, averageBet);
 
-  VOTERS_DISPLAY_ORDER.forEach((user) => {
+  const renderSummaryRow = (user, isVirtual) => {
     const tr = document.createElement("tr");
-    const entry = user === VIRTUAL_BETTOR ? averageBet : state.bets[user];
+    const entry =
+      user === VIRTUAL_AVG_BETTOR
+        ? averageBet
+        : user === VIRTUAL_SELF_BETTOR
+          ? selfKnowledgeBet
+          : state.bets[user];
     const bet = entry && Array.isArray(entry.order) ? entry.order : null;
     const betTimes = entry && entry.times ? entry.times : {};
     const score = Object.prototype.hasOwnProperty.call(state.scores, user)
@@ -845,17 +900,30 @@ function updateSummary() {
           realPos,
           state.resultTimes,
           score !== null,
-          user === VIRTUAL_BETTOR && averageBet ? averageBet.avgPosIdx : null
+          user === VIRTUAL_AVG_BETTOR && averageBet ? averageBet.avgPosIdx : null
         )
       : '<span class="no-bet">Sense predicció</span>';
-    const lastBetText = user === VIRTUAL_BETTOR ? "—" : formatDateTime(state.lastBetAt[user]);
+    const lastBetText = isVirtual ? "—" : formatDateTime(state.lastBetAt[user]);
+    const icon = isVirtual ? "🤖" : "👤";
     tr.innerHTML = `
-      <td>${user}</td>
+      <td>${icon} ${user}</td>
       <td>${betHtml}</td>
       <td>${scoreText}</td>
       <td>${lastBetText}</td>
     `;
     summaryBodyEl.appendChild(tr);
+  };
+
+  [...VOTERS].sort((a, b) => a.localeCompare(b, "ca")).forEach((user) => {
+    renderSummaryRow(user, false);
+  });
+
+  const sep = document.createElement("tr");
+  sep.innerHTML = `<td colspan="4" class="summary-separator">🤖 Apostadors virtuals</td>`;
+  summaryBodyEl.appendChild(sep);
+
+  VIRTUAL_BETTORS.forEach((user) => {
+    renderSummaryRow(user, true);
   });
 
   updatePodium();
@@ -1087,9 +1155,34 @@ async function evaluateScores() {
         avgPenalty += (Math.abs(predictedSec - realSec) / 60) * MINUTE_PENALTY;
       }
     });
-    scores[VIRTUAL_BETTOR] = Math.round((250 - avgPenalty) * 100) / 100;
+    scores[VIRTUAL_AVG_BETTOR] = Math.round((250 - avgPenalty) * 100) / 100;
   } else {
-    scores[VIRTUAL_BETTOR] = null;
+    scores[VIRTUAL_AVG_BETTOR] = null;
+  }
+
+  const selfKnowledgeBet = computeSelfKnowledgeBetFromCurrentBets(merged.bets, averageBet);
+  if (selfKnowledgeBet && Array.isArray(selfKnowledgeBet.order)) {
+    const selfPos = {};
+    selfKnowledgeBet.order.forEach((racer, idx) => {
+      selfPos[racer] = idx;
+    });
+    let selfPenalty = 0;
+    RACERS.forEach((racer) => {
+      const predictedIdx =
+        typeof selfPos[racer] === "number" ? selfPos[racer] : RACERS.length - 1;
+      selfPenalty += Math.abs(predictedIdx - realPos[racer]) * POSITION_PENALTY;
+      const predictedSec =
+        typeof selfKnowledgeBet.times[racer] === "number"
+          ? selfKnowledgeBet.times[racer]
+          : null;
+      const realSec = resultTimes[racer];
+      if (predictedSec !== null && typeof realSec === "number") {
+        selfPenalty += (Math.abs(predictedSec - realSec) / 60) * MINUTE_PENALTY;
+      }
+    });
+    scores[VIRTUAL_SELF_BETTOR] = Math.round((250 - selfPenalty) * 100) / 100;
+  } else {
+    scores[VIRTUAL_SELF_BETTOR] = null;
   }
 
   const final = {

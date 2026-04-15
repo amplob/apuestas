@@ -336,6 +336,21 @@ td {
   vertical-align: top;
 }
 
+#summary-body td:first-child,
+table thead th:first-child {
+  width: 120px;
+  max-width: 120px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.summary-separator {
+  font-weight: 700;
+  color: #4b5d72;
+  background: #f5f8fc;
+}
+
 .bet-visual {
   display: flex;
   flex-wrap: wrap;
