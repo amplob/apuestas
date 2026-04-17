@@ -31,6 +31,18 @@
         </section>
 
         <section class="card">
+          <h2>I know this guy</h2>
+          <p id="iknow-hint" class="small"></p>
+          <div id="iknow-podium" class="podium" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
+          <h2>Wild Card</h2>
+          <p id="wildcard-hint" class="small"></p>
+          <div id="wildcard-podium" class="podium" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
           <h2>Resum de prediccions i puntuació</h2>
           <p class="small">
             Nova puntuació (mode hype): base 250, restant 10 punts per cada posició de diferència i 4 punts per cada minut de diferència de temps.
@@ -108,6 +120,8 @@
       <div id="view-admin" class="view-panel" role="tabpanel" hidden>
         <section class="card" id="admin-gate-card">
           <h2>Resoldre</h2>
+          <p class="small">Resultat oficial guardat actualment (només lectura):</p>
+          <div id="admin-official-result-public" class="official-result-preview"></div>
           <p class="small">Introdueix el codi d'administrador per continuar.</p>
           <div class="row margin-top">
             <input
@@ -138,6 +152,8 @@
             <button id="evaluate-btn" type="button">Avaluar puntuacions</button>
           </div>
           <p id="admin-message" class="message"></p>
+          <p class="small">Resultat oficial guardat actualment:</p>
+          <div id="admin-official-result" class="official-result-preview"></div>
         </section>
       </div>
     </main>

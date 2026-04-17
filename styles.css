@@ -471,9 +471,20 @@ table thead th:first-child {
   color: #992929;
 }
 
+.runner-chip.delta-4plus {
+  border-color: #111111;
+  background: #e2e2e2;
+  color: #111111;
+  font-weight: 700;
+}
+
 .no-bet {
   color: #728397;
   font-style: italic;
+}
+
+.official-result-preview {
+  margin-top: 6px;
 }
 
 dialog {

@@ -16,7 +16,7 @@ const REMOTE_DB_URL = APP_CONFIG.remoteDbUrl || "";
 const LOCAL_PASSWORD_HASHES = APP_CONFIG.localPasswordHashes || {};
 const POSITION_PENALTY = 10;
 const MINUTE_PENALTY = 4;
-const BET_DEADLINE = new Date("2026-04-17T09:00:00+02:00");
+const BET_DEADLINE = new Date("2026-04-17T10:00:00+02:00");
 
 const state = {
   bets: {},
@@ -42,12 +42,18 @@ const aggregateBodyEl = document.getElementById("aggregate-body");
 const betUserSelectEl = document.getElementById("bet-user-select");
 const podiumEl = document.getElementById("podium");
 const podiumHintEl = document.getElementById("podium-hint");
+const iKnowPodiumEl = document.getElementById("iknow-podium");
+const iKnowHintEl = document.getElementById("iknow-hint");
+const wildCardPodiumEl = document.getElementById("wildcard-podium");
+const wildCardHintEl = document.getElementById("wildcard-hint");
 const adminGateCard = document.getElementById("admin-gate-card");
 const adminPanelCard = document.getElementById("admin-panel-card");
 const adminGateTokenEl = document.getElementById("admin-gate-token");
 const adminUnlockBtn = document.getElementById("admin-unlock-btn");
 const adminGateMessageEl = document.getElementById("admin-gate-message");
 const betDeadlineBannerEl = document.getElementById("bet-deadline-banner");
+const adminOfficialResultEl = document.getElementById("admin-official-result");
+const adminOfficialResultPublicEl = document.getElementById("admin-official-result-public");
 
 function cleanStatePayload(src) {
   const s = src || {};
@@ -481,7 +487,7 @@ function updateDeadlineBanner() {
   }
   betDeadlineBannerEl.textContent = `Falten ${formatRemaining(
     remaining
-  )} perquè es tanquin les apostes (divendres 17, 09:00).`;
+  )} perquè es tanquin les apostes (divendres 17, 10:00).`;
   betDeadlineBannerEl.classList.remove("closed");
   setBettingDisabled(false);
 }
@@ -734,7 +740,8 @@ function getPenaltyClass(totalPenalty) {
   if (totalPenalty <= 10) return "delta-0";
   if (totalPenalty <= 25) return "delta-1";
   if (totalPenalty <= 40) return "delta-2";
-  return "delta-3plus";
+  if (totalPenalty <= 55) return "delta-3plus";
+  return "delta-4plus";
 }
 
 function fmtNum(value, decimals = 1) {
@@ -838,6 +845,26 @@ function tryAdminUnlock() {
   setAdminUnlocked(true);
   setMessage(adminGateMessageEl, "", false);
   createRankedRows(resultListEl, state.resultOrder, true, state.resultTimes);
+  updateAdminOfficialResultPreview();
+}
+
+function updateAdminOfficialResultPreview() {
+  const hasOrder =
+    Array.isArray(state.resultOrder) && state.resultOrder.length === RACERS.length;
+  if (!hasOrder) {
+    const emptyHtml = '<span class="no-bet">Encara no hi ha resultat oficial avaluat.</span>';
+    if (adminOfficialResultEl) adminOfficialResultEl.innerHTML = emptyHtml;
+    if (adminOfficialResultPublicEl) adminOfficialResultPublicEl.innerHTML = emptyHtml;
+    return;
+  }
+  const chips = state.resultOrder.map((name, idx) => {
+    const sec = state.resultTimes && typeof state.resultTimes[name] === "number" ? state.resultTimes[name] : null;
+    const timeTxt = sec === null ? "—:—" : formatSeconds(sec);
+    return `<span class="runner-chip">${idx + 1}º ${name} (${timeTxt})</span>`;
+  });
+  const html = `<div class="bet-visual bet-visual--stack">${chips.join("")}</div>`;
+  if (adminOfficialResultEl) adminOfficialResultEl.innerHTML = html;
+  if (adminOfficialResultPublicEl) adminOfficialResultPublicEl.innerHTML = html;
 }
 
 function updatePodium() {
@@ -871,6 +898,80 @@ function updatePodium() {
   });
 
   podiumEl.innerHTML = `<div class="podium-stage">${blocks.join("")}</div>`;
+}
+
+function renderRacerPenaltyPodium(container, ranked) {
+  if (!container) return;
+  const medals = ["🥈", "🥇", "🥉"];
+  const rankIndex = [1, 0, 2];
+  const placeClass = [2, 1, 3];
+  const blocks = rankIndex.map((ri, slot) => {
+    const entry = ranked[ri];
+    if (!entry) {
+      return `<div class="podium-slot podium-empty podium-place-${placeClass[slot]}"><span class="podium-medal">—</span><span class="podium-name">—</span><span class="podium-score"></span></div>`;
+    }
+    return `<div class="podium-slot podium-place-${placeClass[slot]}">
+      <span class="podium-medal">${medals[slot]}</span>
+      <span class="podium-name">${entry.racer}</span>
+      <span class="podium-score">${entry.penalty.toFixed(1)} pts perduts</span>
+    </div>`;
+  });
+  container.innerHTML = `<div class="podium-stage">${blocks.join("")}</div>`;
+}
+
+function updateRacerPenaltyPodiums() {
+  if (!iKnowPodiumEl || !wildCardPodiumEl || !iKnowHintEl || !wildCardHintEl) return;
+  const hasScores = SCORE_USERS.some((u) => typeof state.scores[u] === "number");
+  if (!hasScores) {
+    iKnowHintEl.textContent = "Cal avaluar resultats per veure aquest podi.";
+    wildCardHintEl.textContent = "Cal avaluar resultats per veure aquest podi.";
+    iKnowPodiumEl.innerHTML = "";
+    wildCardPodiumEl.innerHTML = "";
+    return;
+  }
+
+  const realPos = getPositionMap(state.resultOrder);
+  const totals = {};
+  RACERS.forEach((r) => {
+    totals[r] = 0;
+  });
+
+  const averageBet = computeAverageBetFromCurrentBets(state.bets);
+  const selfKnowledgeBet = computeSelfKnowledgeBetFromCurrentBets(state.bets, averageBet);
+  const entries = {};
+  VOTERS.forEach((u) => {
+    entries[u] = state.bets[u];
+  });
+  if (averageBet) entries[VIRTUAL_AVG_BETTOR] = averageBet;
+  if (selfKnowledgeBet) entries[VIRTUAL_SELF_BETTOR] = selfKnowledgeBet;
+
+  SCORE_USERS.forEach((u) => {
+    const entry = entries[u];
+    if (!entry || !Array.isArray(entry.order) || entry.order.length !== RACERS.length) return;
+    const betTimes = entry.times || {};
+    entry.order.forEach((name, predictedPos) => {
+      if (typeof realPos[name] !== "number") return;
+      let penalty = Math.abs(predictedPos - realPos[name]) * POSITION_PENALTY;
+      const predictedSec = betTimes[name];
+      const realSec = state.resultTimes[name];
+      if (typeof predictedSec === "number" && typeof realSec === "number") {
+        penalty += (Math.abs(predictedSec - realSec) / 60) * MINUTE_PENALTY;
+      }
+      totals[name] += penalty;
+    });
+  });
+
+  const rankedBest = RACERS.map((racer) => ({ racer, penalty: totals[racer] }))
+    .sort((a, b) => a.penalty - b.penalty)
+    .slice(0, 3);
+  const rankedWorst = RACERS.map((racer) => ({ racer, penalty: totals[racer] }))
+    .sort((a, b) => b.penalty - a.penalty)
+    .slice(0, 3);
+
+  iKnowHintEl.textContent = "Corredors que han fet perdre menys punts en total.";
+  wildCardHintEl.textContent = "Corredors que han fet perdre més punts en total.";
+  renderRacerPenaltyPodium(iKnowPodiumEl, rankedBest);
+  renderRacerPenaltyPodium(wildCardPodiumEl, rankedWorst);
 }
 
 function updateSummary() {
@@ -927,7 +1028,9 @@ function updateSummary() {
   });
 
   updatePodium();
+  updateRacerPenaltyPodiums();
   updateAggregateSummary();
+  updateAdminOfficialResultPreview();
 }
 
 function updateAggregateSummary() {
@@ -999,6 +1102,7 @@ function showView(name) {
 
   if (name === "admin") {
     syncAdminPanelVisibility();
+    updateAdminOfficialResultPreview();
     if (isAdminUnlocked()) {
       createRankedRows(resultListEl, state.resultOrder, true, state.resultTimes);
     }
